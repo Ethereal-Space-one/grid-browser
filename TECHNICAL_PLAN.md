@@ -1,4 +1,4 @@
-# Grid 技术方案与实施路线（v1.0）
+# Grid 技术方案与实施路线（v1.1）
 
 > 2026-10-31。配套主文件：[PLAN.md](./PLAN.md)。本文件回答“如何把意图优先的开源浏览器做出来”，不改变 PLAN.md 的产品目标。Grid 是当前产品名，早期计划使用 Lattice 开发代号。
 > 状态：实施方案。技术选型中标为“候选”的内容须经过对应决策门验证；本文不把 PoC 当成已完成的浏览器。
@@ -14,7 +14,7 @@
 3. 没有 AI、模型故障或网络受限时，浏览器是否仍能正常使用？
 4. 它能否被外部用户独立安装、复现、检查和贡献？
 
-第一屏只有标准浏览器输入入口；搜索页是短总结加结果列表；网页是完整网页；Agent、比较、证据按需出现。不得为了展示技术而增加常驻侧栏、模式选择、强制会话、证书流程或配置向导。
+第一屏只有标准浏览器输入入口；搜索页是短总结加结果列表；网页是完整网页；Agent、比较、证据按需出现。浏览器被 Agent 使用时，控制预览与暂停入口始终可信且易见。不得为了展示技术而增加常驻侧栏、模式选择、强制会话、证书流程或配置向导。
 
 ---
 
@@ -27,6 +27,8 @@
 | 打开结果 | 原页和返回结果的清晰路径 | 在同一资料档导航，保留查询和滚动状态 | 返回无需重搜；页面权限按站点管理 |
 | 比较页面 | 两页及其与原问题的关系 | 读取用户选定的页面，保留来源与位置 | 不自动读取其他标签或私密页面 |
 | 请求 AI 帮忙 | 授权范围、过程、暂停和接管 | 由浏览器发能力授权，执行可观察动作 | 人类输入抢占；未知结果不重试写操作 |
+| 连接外部 Agent | 当前会话的受限连接、客户端身份与范围 | 通过本机受控桥接共用内部能力面，不复制 Cookie 或另建浏览器资料档 | 少量步骤可接入；撤销后旧调用立刻失效 |
+| 预览下一操作 | 可信浏览器界面中的来源、目标、输入摘要与影响 | 将预览绑定页面版本和授权；执行时在原页显示真实进度 | 目标变化后预览失效；用户能暂停或接管 |
 | 核对或分享 | 原句、来源、抓取时间、可选文件 | 生成快照和 .lattice，分别标明各类保证 | 不把“引文存在”写成“结论正确” |
 
 这张表是工程排期的依赖图：没有真实网页与正常导航，就不能宣称完成搜索体验；没有可验证的授权与真实页面操作，就不能宣称 Agent 可用；没有准确的证据语义，就不能宣称答案可审计。
@@ -49,7 +51,7 @@
                                                               ├─ Search/Fetch adapters
                                                               ├─ Model adapters
                                                               ├─ Intent/Task orchestration
-                                                              └─ MCP server（可选启用）
+                                                              └─ MCP 接入（本机 stdio 桥接；HTTP 可选）
 
 边界定义：
 
@@ -65,6 +67,7 @@
 | 网页内核与浏览器基础 | 跟踪 Chromium stable 的薄补丁 fork，C++ | 三大桌面平台复用浏览器基本能力、扩展体系与成熟安全隔离；必须建立频繁上游合并能力 |
 | 浏览器窗口 | Chromium 原生 UI/Views，最少改动 | 保留惯用导航与无障碍行为，降低 patch 面积 |
 | 搜索/任务页面 | Chromium WebUI，TypeScript + Lit，Mojo | 与 Chromium 构建、权限和本地化体系一致；避免再嵌一套桌面壳 |
+| Agent 控制预览 | 浏览器可信 UI + 页面目标高亮 | 授权和操作摘要由浏览器绘制；页面只提供目标数据，不能伪造控制界面 |
 | AI Broker | 独立 Rust 进程，版本化 IPC | 适合流式网络、状态与权限前检查；不拥有浏览器最终权限。与现有 Node PoC 共存，逐步迁移经过验证的逻辑 |
 | 本地状态 | 浏览器资料档 + SQLite/内容寻址文件 | 任务元数据、来源与缓存分开；密钥使用系统安全存储 |
 | 扩展入口 | MV3 兼容性测试 + 外部 MCP | 扩展是浏览器兼容问题；MCP 是 Agent 接入问题，二者不能混为一谈 |
@@ -87,9 +90,10 @@ Chromium 上游已采用频繁 stable 更新及每周安全刷新；Grid 的 for
 | 搜索页 | 查询、固定高度的短总结槽、可点结果列表 | 检索中、已有结果、总结中、仅结果、无结果、部分来源失败 | 结果先出现；总结不造成布局跳动；结果始终可打开 |
 | 真实网页 | 标准导航与网页内容 | 加载、登录、权限请求、下载、崩溃恢复 | 用户像普通浏览器一样完成常用网站任务 |
 | 比较/任务面板 | 仅在用户请求后出现，紧邻当前两页或动作 | 选页、授权、进行中、暂停、未知结果、接管 | 来源和下一步可见；Esc/关闭不丢页面状态 |
+| Agent 控制预览 | 目标高亮、动作摘要、可信来源和暂停入口 | 待执行、需确认、执行中、已观察、未知结果、过期 | 预览不冒充执行结果；页面变化后失效；人类操作可抢占 |
 | 核对入口 | 原句、来源、抓取时间、验证范围 | 未抓取、已锚定、语义待核、身份未验 | 不用一个“通过”混合不同保证 |
 
-设计系统先定义间距、字体、颜色、焦点、加载与错误组件的 token；以 Chromium 原生控件行为为基准。搜索页在常见窗口宽度、缩放比例、浅色/深色、高对比度下保留结果首屏。每个交互原型都通过真实任务、键盘和屏幕阅读器验收后再固化为组件；不以视觉稿代替使用证据。
+设计系统先定义间距、字体、颜色、焦点、加载与错误组件的 token；以 Chromium 原生控件行为为基准。未来感来自精确排版、稳定网格、克制的强调色与状态反馈；命令面板、动作记录和协议状态只在需要时展开。搜索页在常见窗口宽度、缩放比例、浅色/深色、高对比度下保留结果首屏；控制预览同时提供视觉高亮与可读文字，支持键盘和减少动态效果设置。每个交互原型都通过真实任务、键盘和屏幕阅读器验收后再固化为组件；不以视觉稿代替使用证据。
 
 ---
 
@@ -104,16 +108,18 @@ Chromium 上游已采用频繁 stable 更新及每周安全刷新；Grid 的 for
 - **PageHandle**：profileId、tabId、documentId、navigationId、origin、revision。导航后 documentId 改变，旧节点引用全部失效。
 - **ModelCapabilities**：文字、图片、流式、工具调用、结构化输出、最大上下文、服务端状态等能力及约束。能力由适配器显式声明并通过合约测试验证。
 - **AgentGrant**：taskId、允许的 origin、动作 verbs、敏感数据范围、到期时间、用户确认状态。授权可撤销，默认最小范围。
+- **AgentConnection**：客户端身份、连接方式、已授权 profile/tab/origin、能力版本、到期时间与撤销状态；与模型适配器分开，不能因连接成功而默认获得全部标签。
+- **ActionPreview**：taskId、PageHandle、目标引用与可读名称、动作 verb、输入摘要或遮蔽值、副作用等级、预期观察条件、有效期。预览是待执行提案，不是执行结果；页面 revision 或授权变化后必须失效。
 - **ActionRequest/Result**：taskId、page handle、预期 revision、操作、目标、幂等键、副作用类别；结果为 succeeded、failed、cancelled 或 unknown，并附可观察证据。
 - **EvidenceRecord**：页面 URL、抓取方式、抓取时间、内容哈希、引文位置、可选签名身份；不能把内容哈希解释成来源真实性。
 
 ### 3.2 事件与状态
 
-搜索、导航、页面读取、Agent 请求、授权、动作执行与证据抓取使用同一条本地事件序列。界面从事件中恢复任务进度；动作闸门检查当前文档、权限和栅栏。日志只记录必要元数据，默认不记录网页正文、密码或完整提示词。浏览器崩溃后能恢复标签与未完成任务，但未知写动作只能进入人工核对。
+搜索、导航、页面读取、Agent 连接、预览、授权、动作执行、人类接管与证据抓取使用同一条本地事件序列。预览状态依次为待定位、可预览、需确认、执行中、已观察或结果未知；界面从事件中恢复任务进度，动作闸门检查当前文档、权限和栅栏。日志只记录必要元数据，默认不记录网页正文、密码或完整提示词；输入字段在预览和日志中按敏感性遮蔽。浏览器崩溃后能恢复标签与未完成任务，但未知写动作只能进入人工核对。
 
 ### 3.3 失败契约
 
-每层都返回结构化错误：无结果、网络超时、抓取被拒、模型不支持所需能力、模型中断、页面已导航、授权失效、动作后置条件未知。UI 显示已有结果和下一步；不能把所有错误归并为“请重试”。
+每层都返回结构化错误：无结果、网络超时、抓取被拒、模型不支持所需能力、模型中断、页面已导航、预览过期、连接或授权失效、人类已接管、动作后置条件未知。UI 显示已有结果和下一步；不能把所有错误归并为“请重试”。
 
 ---
 
@@ -174,27 +180,36 @@ OpenAI 官方文档描述 Responses 的工具调用；Claude 使用 Messages 的
 - tabs.list / tabs.open：列出或打开用户允许的标签；
 - page.snapshot：返回选定页面的可访问性与必要 DOM 摘要；
 - page.find：按文本或语义定位元素，返回绑定 documentId 的引用；
-- page.act：执行 click、type、scroll、select 等动作，并返回可观察后置状态；
-- task.status / task.cancel：读取、取消与接管任务；
+- page.prepare：定位下一动作，返回绑定当前页面版本的 ActionPreview；
+- page.act：消费有效预览，执行 click、type、scroll、select 等动作，并返回可观察后置状态；
+- task.status / task.pause / task.cancel：读取、暂停、取消与接管任务；
 - evidence.capture：在用户要求时保存来源与快照。
 
 工具不接受任意脚本执行作为常规动作。页面能提供 WebMCP 工具时可受限使用；WebMCP 仍处早期预览，不能作为唯一入口。页面无可靠语义节点时可用截图视觉回退，但应显示给用户并降低自动执行范围。[Chrome WebMCP 状态](https://developer.chrome.com/docs/modern-web-guidance/guides/webmcp/webmcp)
 
 ### 6.2 动作闭环
 
-    用户授权 → Broker 规划 → Browser Service 校验
-             → 读取当前页面 revision → 执行动作
+    用户授权 → Broker 规划 → Browser Service 定位并生成预览
+             → 校验当前页面 revision/授权 → 必要时人类确认 → 执行动作
              → 观察后置条件 → 记录结果 → 返回 Broker/UI
 
-Browser Service 对每次写动作核验 origin、verb、taskId、文档版本、预期 revision、租约栅栏与必要的人类确认。人类输入立即提高栅栏，旧动作在下一道闸门失效。跨导航必须重新定位，不能复用旧 ref。提交后若没有确定结果，标记 unknown 并只读对账，不能再点一次。用户始终可暂停、撤销授权或接管标签。
+Browser Service 对每次写动作核验 origin、verb、taskId、文档版本、预期 revision、预览有效期、租约栅栏与必要的人类确认。预览句柄不能代替授权；人类输入立即提高栅栏，旧动作在下一道闸门失效。跨导航必须重新定位，不能复用旧 ref 或旧预览。提交后若没有确定结果，标记 unknown 并只读对账，不能再点一次。用户始终可暂停、撤销授权或接管标签。
 
 网页、搜索摘要与 WebMCP 描述视为不可信；它们可以提供事实或操作目标，不能改变权限。Chrome 的官方浏览器 Agent 安全建议明确讨论恶意工具描述、污染输出和跨来源越权风险。[Chrome Agent 安全建议](https://developer.chrome.com/docs/agents/security)
 
-### 6.3 MCP 与浏览器状态
+### 6.3 可信预览与实时控制
 
-支持当前 MCP 规范并对老客户端做兼容协商。MCP 新版是无会话传输；Grid 的任务和标签状态仍由浏览器本地维护，通过显式 taskId、tabId 和短时授权句柄连接请求。MCP server 默认关闭，仅在用户启用时监听本机，验证 Host/Origin、认证、最小授权与速率限制。现有静态 serve 监听 0.0.0.0，不能复用为持有 API key 或真实浏览器权限的服务。[MCP 2026 规范](https://blog.modelcontextprotocol.io/posts/2026-07-28/)、[MCP 本地服务防护](https://py.sdk.modelcontextprotocol.io/run/deploy/)
+预览由 Browser Service 根据用户允许的当前标签生成，可信浏览器 UI 显示站点来源、目标名称与位置、拟输入内容摘要、动作影响及确认要求；密码、令牌和敏感字段仅显示遮蔽值。页面中的高亮只辅助定位，不能承载授权或覆盖站点安全提示。若 DOM、导航、焦点或权限变化使目标不再确定，预览失效，Agent 重新定位；绝不复用旧坐标盲点。
 
-### 6.4 适配次序
+执行时先出现简短的待执行状态，随后在真实网页中显示实际动作与可观察回执。轻量控制条提供暂停、继续、接管和停止；详细动作记录按需展开。普通动作的预览以可扫读的轻量状态呈现，可在已授权范围内连续执行；敏感或不可逆动作逐项确认。预览不模拟网页提交后的成功画面；后置状态无法确认时显示 unknown 与人工核对入口。键盘和屏幕阅读器可完成全部控制。
+
+### 6.4 外部 Agent 接入与浏览器状态
+
+内置 Agent 与外部客户端共用 Browser Service 的能力和预览闸门。外部客户端首选随 Grid 分发的本机 `stdio` 桥接程序：客户端启动桥接，Grid 显示连接者与授权范围，用户选定允许的标签/站点和时间；桥接经已验证的本机 IPC 访问浏览器，不复制 Cookie 或在网页中安装脚本。提供可复制的客户端配置与连接状态，避免要求用户手工寻找端口或令牌。对于只支持 Streamable HTTP 的客户端，可选择启用 loopback 端点，按需配对、鉴权、校验 Host/Origin 并限制速率；默认不监听。MCP 当前标准传输包括 `stdio` 和 Streamable HTTP。[MCP 传输规范](https://modelcontextprotocol.io/specification/draft/basic/transports)
+
+Grid 的任务和标签状态由浏览器本地维护，通过显式 taskId、tabId、能力版本和短时授权句柄连接请求。撤销授权、关闭标签或人类接管后，旧连接的相关调用即失效。现有静态 serve 监听 0.0.0.0，不能复用为持有 API key 或真实浏览器权限的服务。[MCP 本地服务防护](https://py.sdk.modelcontextprotocol.io/run/deploy/)
+
+### 6.5 适配次序
 
 先用浏览器内部 API 完成导航、标签、输入和权限；再用页面语义树/DOM 做定位；CDP 和 WebDriver BiDi 为测试与外部兼容路径。WebDriver BiDi 仍是 W3C 工作草案，应跟进而不把它当成唯一底层接口。[W3C WebDriver BiDi](https://www.w3.org/TR/webdriver-bidi/)
 
@@ -259,17 +274,17 @@ Browser Service 对每次写动作核验 origin、verb、taskId、文档版本�
 
 | 阶段 | 依赖 | 交付 | 不能宣称完成的情况 |
 |---|---|---|---|
-| T0：任务基线与原型 | 无 | 真实任务集、现有浏览器基线、输入/结果/原页交互原型、G1 内核测试 | 只有静态图、内部自评或单一 PoC |
-| T1：浏览器骨架 | T0 | Chromium 构建与安装、地址栏、标签、导航、历史、登录、下载、权限、崩溃恢复、数据导入、自动更新通路 | 仍需回到原浏览器完成常用操作 |
+| T0：任务基线与原型 | 无 | 真实任务集、现有浏览器基线、输入/结果/原页及 Agent 操作预览/接管交互原型、G1 内核测试 | 只有静态图、内部自评或单一 PoC；Agent 原型无法让人看清目标或及时接管 |
+| T1：浏览器骨架 | T0 | Chromium 构建与安装、地址栏、标签、导航、历史、登录、下载、权限、崩溃恢复、数据导入、自动更新通路；同会话只读页面快照、标签绑定及接管/动作闸门基础 | 仍需回到原浏览器完成常用操作；Agent 基础能力必须借助第二套登录态 |
 | T2：搜索闭环 | T1 | Search adapters、短总结与结果列表、默认免 key 体验、原页返回、失败回退 | 结果被总结阻塞或用户无法打开来源 |
 | T3：意图连续性 | T2 | 跨页面上下文、比较、恢复任务、无需手动建空间 | 多标签任务仍需重复搜索和复制粘贴 |
-| T4：AI 兼容与 Agent | T1–T3 | Model capability matrix、真实页面动作、授权/接管、MCP、恶意页面测试 | 只在 mock executor 或单一模型上通过 |
+| T4：AI 兼容与 Agent | T1–T3 | Model capability matrix、真实页面动作、可信预览、原页实时状态、暂停/接管、少配置的本机 MCP 接入、恶意页面测试 | 只在 mock executor 或单一模型上通过；预览和动作脱节或外部 Agent 须复制登录态 |
 | T5：按需证据 | T2–T4 | 就地核对、修正后的 .lattice、四端互操作 | 把锚点命中当成语义正确 |
-| T6：开放发布 | T1–T5 | 三平台发布矩阵、构建说明、许可、贡献、安全响应、可用安装包、30 秒体验入口 | 外部人无法安装、复现或报告问题 |
+| T6：开放发布 | T1–T5 | 三平台发布矩阵、构建说明、许可、贡献、安全响应、可用安装包、30 秒浏览体验与可选的受控 Agent 演示 | 外部人无法安装、复现或报告问题 |
 
 ### 10.1 最小可公开体验
 
-“开源浏览器的第一个可体验版本”至少应做到：无需申请 key 即可安装、正常浏览真实网站、搜索显示结果和短总结、打开原页并返回、AI 失败时浏览不受影响、反馈入口明确。Agent 与 .lattice 可在后续版本逐步开放，但不能以缺失浏览器基本功换取过早展示。
+“开源浏览器的第一个可体验版本”至少应做到：无需申请 key 即可安装、正常浏览真实网站、搜索显示结果和短总结、打开原页并返回、AI 失败时浏览不受影响、反馈入口明确。T0 同时提供可交互的 Agent 控制预览样机，测试用户能否理解和接管；该样机不代表真实页面执行已完成。真实 Agent 在 T4 通过浏览器权限、安全和可靠性门槛后开放。
 
 ### 10.2 工程门槛
 
@@ -278,6 +293,7 @@ Browser Service 对每次写动作核验 origin、verb、taskId、文档版本�
 - 性能：同设备同网页测冷启动、输入响应、首个可用搜索结果、P50/P95 任务时间、完整进程树内存与能耗；先立基线再定优化目标。
 - 隐私：遥测默认最小化，浏览记录不上传；用户可查看并删除任务数据、缓存与证据。
 - 兼容：常用网站、登录、上传下载、中文输入法、PDF/视频、辅助技术与选定扩展形成固定回归集。
+- Agent 控制：从当前页连接、识别目标、暂停及接管的步骤和时间进入任务基线；预览与动作绑定同一页面版本，页面变化后失效；敏感动作逐项确认；键盘与屏幕阅读器可操作；外部连接不复制登录态。
 
 ---
 
@@ -304,6 +320,9 @@ Browser Service 对每次写动作核验 origin、verb、taskId、文档版本�
 | AI 适配名义兼容、能力实际缺失 | 能力矩阵 + 供应商原生接口合约测试 + 明确降级 |
 | 默认服务被滥用或停服 | 免 key 服务有滥用控制、隐私说明与自托管/BYOK 回退；浏览本体不依赖它 |
 | Agent 被网页注入操纵 | 页面数据不授予权限；主进程闸门、来源限制、敏感动作人工确认、恶意页面测试 |
+| Agent 预览与实际动作不一致 | 预览、授权与执行核对同一来源、标签及文档版本；过期即重新定位，实际结果只由真实网页观察确认 |
+| 外部 Agent 接入过于繁琐 | 随应用分发本机 stdio 桥接；提供可复制配置和连接状态；用首次接入步骤与时间实测，保留显式授权 |
+| 极客视觉干扰日常浏览 | 任务视图保持内容优先；在窄窗口、缩放、键盘、高对比度和真实用户任务中验证层级与控制可发现性 |
 | 双内核造成登录态分裂 | 默认单内核；任何双内核方案必须证明资料档、历史、权限和 Agent 一致性 |
 | .lattice 的验证结论被误读 | UI 和格式分层呈现完整性、锚点、语义支持、来源真实性与身份 |
 | 项目追求“第一”导致功能膨胀 | 以用户任务与开放采用为判断，不以功能数量为指标 |
@@ -312,15 +331,17 @@ Browser Service 对每次写动作核验 origin、verb、taskId、文档版本�
 
 ## 13. 第一批具体工作包
 
-1. **任务基线**：把 PLAN.md M0 的 20–30 个任务做成可复跑脚本与用户测试表。
+1. **任务基线**：把 PLAN.md M0 的 20–30 个任务做成可复跑脚本与用户测试表；记录 Agent 连接、预览理解和接管指标。
 2. **Chromium 构建实验**：固定 stable 版本，macOS 首建，CI 建 Windows/Linux；测原生浏览器基础流程与上游更新速度。
 3. **WebUI 垂直切片**：一个地址栏、一个搜索结果页、一个真实网页；结果先行、短总结异步、可返回原查询。
 4. **协议与适配**：冻结 SearchHit、IntentContext、PageHandle、ModelCapabilities 等 schema；为 DeepSeek 和第二检索源做合约测试；修正旧模型名。
 5. **免 key 体验**：实现开源 relay 的最小可用版本、隐私文案、自托管与 BYOK 回退，验证外部用户可安装试用。
-6. **真实页面动作实验**：只读 snapshot → 安全点击/输入 → 人类接管 → 失败对账；先覆盖两个动态、一个登录网站。
-7. **证据修复**：修正 SPEC 签名范围及四端一致性，把证据核对放进按需入口。
+6. **Agent 控制预览原型**：在任务夹具中走通“选定当前页 → 目标高亮和可信预览 → 执行状态 → 暂停/接管”，先测用户能否理解预览、找到控制入口；以克制的高密度信息层级、明确焦点和可减少动效检验视觉方向。
+7. **真实页面动作实验**：同会话只读 snapshot → 生成绑定页面版本的预览 → 安全点击/输入 → 人类接管 → 失败对账；先覆盖两个动态、一个登录网站，并测过期预览被拒绝。
+8. **外部 Agent 接入实验**：本机 stdio 桥接与 Browser Service 共用授权/动作闸门；准备一份可复制配置，在不导出 Cookie 的前提下测首次连接、断开、撤权和接管。
+9. **证据修复**：修正 SPEC 签名范围及四端一致性，把证据核对放进按需入口。
 
-这七个工作包形成一条纵向闭环：真实用户任务 → 可用浏览器 → 搜索结果 → 真实网页 → 可选 AI 动作 → 可选证据。任何工作包都不能只以“代码已写”验收。
+这些工作包形成一条纵向闭环：真实用户任务 → 可用浏览器 → 搜索结果 → 真实网页 → 可预览和接管的可选 AI 动作 → 可选证据。任何工作包都不能只以“代码已写”验收。
 
 ---
 
@@ -330,7 +351,7 @@ Browser Service 对每次写动作核验 origin、verb、taskId、文档版本�
 - [Chromium 架构](https://www.chromium.org/developers/design-documents/multi-process-architecture/)、[跨平台构建](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/get_the_code.md)、[WebUI 与 Mojo](https://chromium.googlesource.com/chromium/src/+/main/docs/webui/webui_explainer.md)、[安全更新](https://chromium.googlesource.com/chromium/src/+/main/docs/security/updates.md)。
 - [DeepSeek Search/Fetch](https://api-docs.deepseek.com/guides/search/)、[DeepSeek Responses 兼容范围](https://api-docs.deepseek.com/guides/responses_api/)。
 - [OpenAI Docs：工具调用](https://developers.openai.com/api/docs/guides/function-calling)、[Claude 工具调用](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)、[Gemini Interactions](https://ai.google.dev/gemini-api/docs/interactions-overview)、[llama.cpp server](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)。
-- [MCP 2026 规范](https://blog.modelcontextprotocol.io/posts/2026-07-28/)、[WebDriver BiDi 草案](https://www.w3.org/TR/webdriver-bidi/)、[WebMCP 预览](https://developer.chrome.com/docs/modern-web-guidance/guides/webmcp/webmcp)、[Chrome Agent 安全](https://developer.chrome.com/docs/agents/security)。
+- [MCP 传输规范](https://modelcontextprotocol.io/specification/draft/basic/transports)、[WebDriver BiDi 草案](https://www.w3.org/TR/webdriver-bidi/)、[WebMCP 预览](https://developer.chrome.com/docs/modern-web-guidance/guides/webmcp/webmcp)、[Chrome Agent 安全](https://developer.chrome.com/docs/agents/security)。
 - [BrowserOS 开源项目](https://github.com/browseros-ai/BrowserOS/blob/main/README.BrowserOS.md)。
 
 一手资料证明接口、实现或发布状态；“这条路线会成为第一”的判断仍须由产品对照、兼容、安全和社区采用实测支持。

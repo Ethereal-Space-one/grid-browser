@@ -10,7 +10,7 @@ Grid 是从用户意图出发的开源浏览器：让人更快找到、理解并
 - `Sources/GridBrowserProbe/main.swift`：Swift 6/AppKit/WebKit 对照样机，包含地址栏、前进后退、重载、标签和真实网页。
 - `fixtures/web/`：本地导航、动态表单、iframe、下载夹具。
 - `prototypes/search-lab/`：可交互的结果优先搜索页，用录制数据验证信息层级与失败状态；不执行实时检索。
-- `docs/T0_TASKS.md`：24 个可复跑用户任务；`docs/t0-results.template.csv` 是记录模板，参与者原始记录不进入 Git。
+- `docs/T0_TASKS.md`：28 个可复跑用户任务（含 Agent 预览与接管）；`docs/t0-results.template.csv` 是记录模板，参与者原始记录不进入 Git。
 - `docs/G1_ENGINE_DECISION.md`：Chromium 与 WebKit 同负载决策门及当前实测边界。
 - `scripts/build-chromium-g1.sh`：在固定 stable 提交上同步 DEPS、生成独立 GN 配置并构建 `chrome`；完整复现步骤见 [Chromium G1 构建说明](./docs/BUILD_CHROMIUM.md)。本仓库不包含 Chromium 源码、工具链或构建产物。
 - `scripts/smoke-chromium-g1.sh`：构建完成后用临时资料档启动 Chromium，验证本地页面能被渲染。
@@ -38,4 +38,4 @@ python3 -m http.server 8765 --bind 127.0.0.1 --directory fixtures/web
 
 ## 当前限制与下一步
 
-样机搜索使用外部 Bing 页面；录制数据搜索原型尚未接入浏览器地址栏。两者分别验证真实网页浏览与搜索页交互，不替代 T2 搜索闭环。Chromium G1 完整构建、Agent、证据和安全更新通道尚未完成。下一步先完成 T0 用户任务基线与内核决策门，再在选定的浏览器中接入真实搜索页。
+样机搜索使用外部 Bing 页面；录制数据搜索原型尚未接入浏览器地址栏。两者分别验证真实网页浏览与搜索页交互，不替代 T2 搜索闭环。Agent 控制预览仍在计划阶段，A01–A04 的真实执行记为“未实现”。Chromium G1 完整构建、Agent、证据和安全更新通道尚未完成。下一步完成 T0 用户任务基线与 Agent 控制预览原型，同时推进内核决策门，再在选定的浏览器中接入真实搜索页。

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grid 本地媒体测试</title>
+  <style>
+    body { max-width: 760px; margin: 2rem auto; padding: 0 1rem; font: 16px/1.6 system-ui, sans-serif; }
+    video { display: block; width: 100%; background: #111; }
+    code { overflow-wrap: anywhere; }
+    #state { min-height: 1.5rem; }
+  </style>
+</head>
+<body>
+  <p><a href="./index.html">返回夹具首页</a></p>
+  <h1>本地媒体测试</h1>
+  <p>36 秒合成测试片：VP9 视频、Opus 音频与 WebVTT 字幕。请用浏览器原生控件测试播放、拖动、字幕、全屏和切换标签后的状态。音频是持续的提示音，请先调低音量。</p>
+  <video id="video" controls preload="metadata" playsinline>
+    <source src="./grid-media-test.webm" type="video/webm; codecs=&quot;vp9, opus&quot;">
+    <track src="./grid-media-test.vtt" kind="captions" srclang="zh" label="中文测试字幕" default>
+    当前浏览器不支持这个视频元素。
+  </video>
+  <p id="state" role="status" aria-live="polite">等待媒体元数据。</p>
+  <p>声明的类型：<code>video/webm; codecs="vp9, opus"</code>。能力探测：<code id="capability">待检查</code>。探测结果只是线索；请以实际画面、声音、字幕和操作为准。</p>
+  <p>此夹具不测试 MP4/H.264/AAC、直播或 DRM。那些能力需要独立样本及实际分发包测试。</p>
+  <script>
+    const video = document.querySelector('#video');
+    const state = document.querySelector('#state');
+    document.querySelector('#capability').textContent = video.canPlayType('video/webm; codecs="vp9, opus"') || '未报告支持';
+    const update = () => {
+      const seconds = Number.isFinite(video.currentTime) ? video.currentTime.toFixed(1) : '?';
+      const duration = Number.isFinite(video.duration) ? video.duration.toFixed(1) : '?';
+      const phase = video.error ? `错误 ${video.error.code}` : video.paused ? '暂停' : '播放';
+      state.textContent = `${phase} · ${seconds}/${duration} 秒 · 字幕轨 ${video.textTracks.length}`;
+    };
+    for (const eventName of ['loadedmetadata', 'play', 'pause', 'timeupdate', 'seeked', 'ended', 'error']) {
+      video.addEventListener(eventName, update);
+    }
+  </script>
+</body>
+</html>

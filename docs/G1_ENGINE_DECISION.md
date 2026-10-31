@@ -38,6 +38,7 @@ WebKit 对照样机的搜索会打开 Bing；它没有 Grid 搜索结果页、AI
 
 - 本机有 Xcode 27.1/Swift 6.4；`gn`、`ninja`、`rustc` 尚不在全局 PATH。已从 Chromium 官方仓库浅克隆 `depot_tools` 到忽略的 `.tools/depot_tools`，固定提交 `37e67d87efb841c1633c9943cdc334ecb523b921`。Chromium 源码获取与错误记录见 [构建日志](./CHROMIUM_BUILD_LOG.md)；目前没有 Chromium 构建或性能数据。
 - WebKit 样机已在 macOS 实际启动；以公开网页验证了网址直达、网页交互、外部查询导航、后退、新建标签和标签切换。以本地夹具验证了动态表单、iframe、新标签链接与保存下载文件。编译与 `GridCore` 测试通过。
+- 已加入自生成 VP9/Opus、WebVTT 本地媒体夹具；HTTP 服务响应和编码元数据已核对。尚未用 Grid 样机或实际 Chromium 安装包完成播放、字幕及会议实测，V01/V02 仍待执行。媒体观测按 [模板](./media-results.template.csv)记录。
 - 样机检查中发现首页显示 `about:blank`、返回时标题不刷新、下载链接无保存流程的问题；已分别用首页地址处理、WebView 状态观察和 `WKDownloadDelegate` 修复并复验。下一轮仍须执行完整任务集，尤其是输入法、辅助技术、真实登录与恢复能力。
 - `docs/t0-results.csv` 只有表头；目前没有用户基线或 Chromium 对照数据。**G1 决策未通过。**
 

@@ -8,10 +8,11 @@ Grid 是从用户意图出发的开源浏览器：让人更快找到、理解并
 
 - `Sources/GridCore/OmniboxIntent.swift`：网址与查询分流；网址不调用模型，查询走明确的搜索回退。
 - `Sources/GridBrowserProbe/main.swift`：Swift 6/AppKit/WebKit 对照样机，包含地址栏、前进后退、重载、标签和真实网页。
-- `fixtures/web/`：本地导航、动态表单、iframe、下载夹具。
+- `fixtures/web/`：本地导航、动态表单、iframe、下载及 VP9/Opus 音视频/字幕夹具。
 - `prototypes/search-lab/`：可交互的结果优先搜索页，用录制数据验证信息层级与失败状态；不执行实时检索。
 - `docs/T0_TASKS.md`：30 个可复跑用户任务（含 Agent 预览/接管和媒体/会议）；`docs/t0-results.template.csv` 是记录模板，参与者原始记录不进入 Git。
 - `docs/BROWSER_FOUNDATIONS.md`：媒体、会议与日用网页能力矩阵；说明 Video.js 在 Grid 中的适用边界。
+- `docs/media-results.template.csv`：媒体格式、实际播放与系统行为的记录模板；原始记录不进入 Git。
 - `docs/G1_ENGINE_DECISION.md`：Chromium 与 WebKit 同负载决策门及当前实测边界。
 - `scripts/build-chromium-g1.sh`：在固定 stable 提交上同步 DEPS、生成独立 GN 配置并构建 `chrome`；完整复现步骤见 [Chromium G1 构建说明](./docs/BUILD_CHROMIUM.md)。本仓库不包含 Chromium 源码、工具链或构建产物。
 - `scripts/smoke-chromium-g1.sh`：构建完成后用临时资料档启动 Chromium，验证本地页面能被渲染。
@@ -30,10 +31,10 @@ open .build/GridBrowserProbe.app
 本地任务夹具：
 
 ```sh
-python3 -m http.server 8765 --bind 127.0.0.1 --directory fixtures/web
+python3 scripts/serve-fixtures.py
 ```
 
-在样机地址栏输入 `localhost:8765`。快捷键：`⌘L` 聚焦地址栏、`⌘T` 新标签、`⌘W` 关闭标签、`⌘R` 重载。
+在样机地址栏输入 `localhost:8765`。媒体夹具在 `http://127.0.0.1:8765/media.html`，可按 V01 检查视频、声音、字幕和切换标签；完整样本说明见 [夹具文档](./fixtures/web/README.md)。快捷键：`⌘L` 聚焦地址栏、`⌘T` 新标签、`⌘W` 关闭标签、`⌘R` 重载。
 
 搜索交互原型可直接用浏览器打开 `prototypes/search-lab/index.html`。它只演示“结果先出现、总结随后填入固定位置、原页可打开”和失败回退；不能用它测检索质量或 AI 准确性。
 

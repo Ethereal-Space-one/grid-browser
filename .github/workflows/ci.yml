@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test Swift core and build browser probe
+        run: swift test
+      - name: Check prototype JavaScript
+        run: node --check prototypes/search-lab/app.js
+      - name: Check shell scripts
+        run: |
+          bash -n scripts/build-chromium-g1.sh scripts/smoke-chromium-g1.sh
+          sh -n scripts/package-probe.sh

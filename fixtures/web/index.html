@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grid 浏览任务夹具</title>
+  <style>
+    body { max-width: 760px; margin: 3rem auto; padding: 0 1rem; font: 16px/1.6 system-ui, sans-serif; }
+    a, button, input { font: inherit; }
+    section { border-top: 1px solid #bbb; padding: 1rem 0; }
+    label { display: block; margin: .5rem 0; }
+    iframe { width: 100%; min-height: 120px; border: 1px solid #bbb; }
+    #result { min-height: 1.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Grid 浏览任务夹具</h1>
+  <p>这个本地页面只验证浏览器行为，不是产品搜索页。测试文字：橘色风筝落在蓝色屋顶上。</p>
+  <section>
+    <h2>导航</h2>
+    <a href="./second.html">打开第二页</a> ·
+    <a href="./second.html" target="_blank" rel="noopener">在新标签打开第二页</a> ·
+    <a href="./sample.txt" download>下载测试文本</a>
+  </section>
+  <section>
+    <h2>动态表单</h2>
+    <form id="form">
+      <label>任务代号 <input name="task" autocomplete="off" required></label>
+      <button type="submit">生成本地回执</button>
+    </form>
+    <p id="result" role="status" aria-live="polite"></p>
+  </section>
+  <section>
+    <h2>嵌入页面</h2>
+    <iframe src="./frame.html" title="测试 iframe"></iframe>
+  </section>
+  <script>
+    document.querySelector('#form').addEventListener('submit', event => {
+      event.preventDefault();
+      const value = new FormData(event.currentTarget).get('task');
+      document.querySelector('#result').textContent = `已记录：${value}`;
+    });
+  </script>
+</body>
+</html>

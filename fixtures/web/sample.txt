@@ -1,0 +1,2 @@
+Grid local download fixture
+This file contains no user data.

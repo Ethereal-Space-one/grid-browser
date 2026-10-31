@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grid · 搜索交互原型</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="./index.html" aria-label="Grid 首页">Grid<span class="brand-dot">.</span></a>
+      <span class="prototype-label">搜索交互原型</span>
+    </header>
+
+    <main>
+      <form class="search-form" id="search-form" role="search">
+        <label class="sr-only" for="query">输入你要查找的内容</label>
+        <input id="query" name="query" type="search" autocomplete="off" spellcheck="false"
+               placeholder="输入你要查找的内容" value="今年有哪些值得关注的开源浏览器项目">
+        <button type="submit" aria-label="搜索">搜索 <span aria-hidden="true">↗</span></button>
+      </form>
+
+      <div class="context-row">
+        <span class="context-dot" aria-hidden="true"></span>
+        <span id="context-label">从你的问题开始</span>
+        <span class="sample-pill">录制数据 · 非实时搜索</span>
+      </div>
+
+      <section class="summary" aria-labelledby="summary-title">
+        <h1 class="section-kicker" id="summary-title">简短总结</h1>
+        <div class="summary-content">
+          <p id="summary-text" role="status" aria-live="polite">正在整理已有结果…</p>
+        </div>
+        <p class="summary-footnote" id="summary-footnote">仅基于搜索摘要，尚未核对原文</p>
+      </section>
+
+      <section class="results" aria-labelledby="results-title">
+        <div class="results-heading">
+          <h2 id="results-title">搜索结果 <span id="result-count">03</span></h2>
+        </div>
+        <ol id="result-list"></ol>
+        <div id="empty-state" class="empty-state" hidden>
+          <h3>这组原型没有对应的录制结果</h3>
+          <p>现在只演示一个预设问题。你可以恢复示例，或明确选择使用外部搜索。</p>
+          <a id="external-search" href="#" target="_blank" rel="noopener noreferrer">用外部搜索打开此问题 ↗</a>
+        </div>
+      </section>
+
+      <aside class="lab-tools" aria-label="研究者控制">
+        <div>
+          <strong>研究者控制</strong>
+          <p>只改变页面状态，用于检查失败与空结果时的体验。</p>
+        </div>
+        <div class="lab-actions">
+          <button type="button" id="simulate-summary-failure">总结失败</button>
+          <button type="button" id="simulate-empty">无结果</button>
+          <button type="button" id="restore">恢复示例</button>
+        </div>
+      </aside>
+    </main>
+
+    <footer>这是 T0 可交互原型。真实网页浏览与检索质量分别验收。</footer>
+  </div>
+</body>
+</html>

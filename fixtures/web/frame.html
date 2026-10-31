@@ -1,0 +1,9 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Grid iframe</title>
+<body style="font:16px/1.6 system-ui,sans-serif">
+<label>框架内输入 <input id="inside" autocomplete="off"></label>
+<button id="check">确认</button><p id="state" role="status" aria-live="polite"></p>
+<script>
+document.querySelector('#check').addEventListener('click', () => {
+  document.querySelector('#state').textContent = '框架已确认：' + document.querySelector('#inside').value;
+});
+</script></body></html>

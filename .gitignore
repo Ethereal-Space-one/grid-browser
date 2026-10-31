@@ -1,0 +1,13 @@
+.build/
+.tools/
+.local/
+.DS_Store
+*.xcuserstate
+.env
+.env.*
+secrets/
+*.p8
+*.p12
+*.key
+private.pem
+docs/t0-results.csv

@@ -1,0 +1,17 @@
+{
+  "name": "grid-electron-m0",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Grid M0 value prototype",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc && node scripts/copy-assets.mjs",
+    "start": "npm run build && electron .",
+    "test": "npm run build && node --test dist/intent.test.js dist/search.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "electron": "45.2.1",
+    "typescript": "7.0.2"
+  }
+}

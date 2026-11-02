@@ -1,0 +1,46 @@
+:root { color-scheme: dark; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; background: #0b0f17; color: #ecf1f7; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 720px; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid #87e1c2; outline-offset: 2px; }
+.toolbar { height: 78px; padding: 17px 22px; display: flex; align-items: center; gap: 8px; background: #101722; border-bottom: 1px solid #273342; }
+.brand { font-weight: 800; font-size: 16px; letter-spacing: .18em; margin-right: 20px; white-space: nowrap; }
+.brand-mark { color: #7ce4bf; }
+.nav, .home { border: 1px solid #304050; color: #d8e3ee; background: #172231; border-radius: 9px; height: 38px; }
+.nav { width: 38px; font-size: 20px; line-height: 1; }
+.nav:disabled { opacity: .38; cursor: default; }
+.home:disabled { opacity: .38; cursor: default; }
+.home { padding: 0 15px; }
+.omnibox { min-width: 180px; flex: 1; height: 42px; display: flex; align-items: center; padding: 3px; background: #080e16; border: 1px solid #365064; border-radius: 11px; }
+.omnibox:focus-within { border-color: #7ce4bf; }
+.omnibox input { flex: 1; min-width: 0; border: 0; outline: 0; color: #f2f6fa; background: transparent; padding: 0 13px; }
+.omnibox input::placeholder { color: #8599ab; }
+.omnibox button { height: 34px; border: 0; border-radius: 8px; padding: 0 13px; color: #09231c; background: #7ce4bf; font-weight: 700; }
+.surface { min-height: calc(100vh - 78px); padding: 55px clamp(28px, 7vw, 110px) 100px; background: radial-gradient(ellipse at 78% -10%, #12313a 0, transparent 42%), #0b0f17; }
+.welcome { max-width: 760px; margin: 9vh auto 0; }
+.eyebrow { font-size: 11px; letter-spacing: .21em; color: #7ce4bf; font-weight: 800; }
+h1 { font-size: clamp(32px, 4.3vw, 56px); line-height: 1.1; letter-spacing: -.045em; margin: 18px 0; }
+p { line-height: 1.7; color: #b4c3d1; }
+.welcome p { font-size: 18px; max-width: 630px; }
+.setup { margin-top: 34px; padding: 18px 20px; border: 1px solid #294052; border-radius: 12px; background: #121e2b; color: #d3e0eb; line-height: 1.65; }
+.note { margin-top: 24px; color: #8095a6; font-size: 13px; }
+.hidden { display: none !important; }
+.results, .reading { max-width: 950px; margin: 0 auto; }
+.results h1 { font-size: 35px; }
+.subline { color: #8fa5b5; font-size: 14px; }
+.result-list { display: grid; gap: 13px; margin-top: 29px; }
+.result { padding: 20px 23px; border: 1px solid #263545; border-radius: 13px; background: #121a25; }
+.result-title { margin: 0 0 7px; font-size: 20px; color: #eef8f5; line-height: 1.3; }
+.result-url { font-size: 12px; color: #7ce4bf; overflow-wrap: anywhere; }
+.result p { margin: 10px 0 14px; font-size: 14px; }
+.result-actions { display: flex; gap: 9px; }
+.result-actions button, .reading-top button { padding: 8px 11px; background: #1b2b39; border: 1px solid #315365; border-radius: 8px; color: #dff3ed; }
+.reading-top { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.reading h1 { font-size: 36px; }
+.reading-warning { background: #1d211a; border-left: 3px solid #bea871; padding: 12px 15px; font-size: 13px; color: #dbcda6; }
+.reading pre { font: 15px/1.75 ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; color: #d9e2ea; margin-top: 30px; }
+.error { position: fixed; z-index: 10; bottom: 23px; left: 50%; transform: translateX(-50%); max-width: min(800px, 90vw); padding: 12px 19px; border: 1px solid #ad5a5c; border-radius: 10px; background: #402226; color: #ffe1e1; box-shadow: 0 12px 50px #0008; }
+.busy { position: fixed; z-index: 10; bottom: 23px; right: 23px; padding: 10px 15px; border: 1px solid #305166; border-radius: 10px; background: #1b2d38; color: #d6eee7; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (prefers-reduced-motion: no-preference) { .result, button { transition: border-color .15s, background-color .15s; } .result:hover { border-color: #497f7a; } }

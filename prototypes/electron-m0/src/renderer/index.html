@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'">
+    <title>Grid · M0</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="brand" aria-label="Grid">GRID<span class="brand-mark">/</span></div>
+      <button id="back" class="nav" type="button" aria-label="后退">←</button>
+      <button id="forward" class="nav" type="button" aria-label="前进">→</button>
+      <button id="reload" class="nav" type="button" aria-label="重新加载">↻</button>
+      <form id="input-form" class="omnibox">
+        <label class="sr-only" for="input">网址或查询</label>
+        <input id="input" autocomplete="off" spellcheck="false" placeholder="输入网址，或主动搜索一个问题">
+        <button type="submit">前往 ↗</button>
+      </form>
+      <button id="return-results" class="home" type="button" disabled>结果</button>
+      <button id="home" class="home" type="button">首页</button>
+    </header>
+
+    <main id="surface" class="surface">
+      <section id="welcome" class="welcome">
+        <div class="eyebrow">M0 · INTENT FIRST</div>
+        <h1>从你要做的事开始。</h1>
+        <p>输入网址直接打开原页。提出问题时，先看检索结果，再决定阅读或操作。</p>
+        <div id="setup" class="setup" role="status"></div>
+        <div class="note">这是开发者验证原型。真实页面操作与正式安全边界尚未完成。</div>
+      </section>
+
+      <section id="results" class="results hidden" aria-labelledby="results-title">
+        <div class="eyebrow">SEARCH / RESULTS FIRST</div>
+        <h1 id="results-title"></h1>
+        <p class="subline">结果来自 DeepSeek Search。排序由提供者决定；Grid 当前保持原顺序。尚无模型总结与原文核对。</p>
+        <div id="result-list" class="result-list"></div>
+      </section>
+
+      <section id="reading" class="reading hidden" aria-labelledby="reading-title">
+        <div class="reading-top">
+          <div class="eyebrow">CLEAN READING / FETCH</div>
+          <button id="open-reading-source" type="button">打开真实原页 ↗</button>
+        </div>
+        <h1 id="reading-title"></h1>
+        <p id="reading-source" class="subline"></p>
+        <p class="reading-warning">此内容由 Fetch 获取，可能不完整或过时；需要登录、操作或核实时请返回原页。</p>
+        <pre id="reading-content"></pre>
+      </section>
+
+      <div id="error" class="error hidden" role="alert"></div>
+      <div id="busy" class="busy hidden" role="status">正在获取结果…</div>
+    </main>
+    <script src="renderer.js"></script>
+  </body>
+</html>

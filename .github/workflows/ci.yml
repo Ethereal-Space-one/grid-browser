@@ -8,6 +8,29 @@ permissions:
   contents: read
 
 jobs:
+  electron-m0:
+    name: Electron M0 build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: prototypes/electron-m0/package-lock.json
+      - name: Install M0 dependencies
+        working-directory: prototypes/electron-m0
+        run: npm ci
+      - name: Build and check M0 contracts
+        working-directory: prototypes/electron-m0
+        run: npm test
+
   probe:
     runs-on: macos-latest
     steps:

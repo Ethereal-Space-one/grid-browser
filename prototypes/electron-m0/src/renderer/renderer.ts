@@ -112,6 +112,7 @@ document.querySelector<HTMLButtonElement>('#open-reading-source')!.addEventListe
 
 grid.onState(state => {
   if (state.mode === 'home') show('welcome');
+  if (state.mode === 'results' && state.hasResults) show('results');
   input.value = state.value;
   document.querySelector<HTMLButtonElement>('#back')!.disabled = !state.canGoBack;
   document.querySelector<HTMLButtonElement>('#forward')!.disabled = !state.canGoForward;

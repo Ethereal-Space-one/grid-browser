@@ -15,6 +15,8 @@ let pageAttached = false;
 let mode: State['mode'] = 'home';
 let value = '';
 let hasResults = false;
+let lastQuery = '';
+const configuredKey = process.env.DEEPSEEK_API_KEY || process.env.DeepSeek_ApiKeyN;
 
 function state(): State {
   return {
@@ -23,7 +25,7 @@ function state(): State {
     canGoBack: (mode === 'page' && (page?.webContents.navigationHistory.canGoBack() || hasResults)) ?? false,
     canGoForward: (mode === 'page' && page?.webContents.navigationHistory.canGoForward()) ?? false,
     hasResults,
-    keyReady: Boolean(process.env.DEEPSEEK_API_KEY)
+    keyReady: Boolean(configuredKey)
   };
 }
 
@@ -53,7 +55,7 @@ function assertUiSender(senderId: number): void {
 }
 
 function requireKey(): string {
-  const key = process.env.DEEPSEEK_API_KEY;
+  const key = configuredKey;
   if (!key) throw new Error('请先在启动 Grid 的终端设置 DEEPSEEK_API_KEY；网址直达无需密钥');
   return key;
 }
@@ -78,6 +80,7 @@ async function search(query: string): Promise<SearchResponse> {
   const payload = await deepSeek<unknown>('search', { query, count: 10, need_content: false });
   const results = normalizeSearchResults(payload);
   hasResults = true;
+  lastQuery = query;
   notifyState();
   return { results, query };
 }
@@ -141,7 +144,9 @@ function createWindow(): void {
   page.webContents.on('did-navigate', (_event, url) => { value = url; notifyState(); });
   page.webContents.on('did-navigate-in-page', (_event, url) => { value = url; notifyState(); });
   window.on('resize', resizePage);
-  window.on('closed', () => page.webContents.close());
+  window.on('closed', () => {
+    if (!page.webContents.isDestroyed()) page.webContents.close();
+  });
 }
 
 app.whenReady().then(() => {
@@ -170,13 +175,13 @@ app.whenReady().then(() => {
   ipcMain.handle('grid:results', event => {
     assertUiSender(event.sender.id);
     if (!hasResults) return;
-    mode = 'results'; setPageVisible(false); notifyState();
+    mode = 'results'; value = lastQuery; setPageVisible(false); notifyState();
   });
   ipcMain.handle('grid:back', event => {
     assertUiSender(event.sender.id);
     if (mode !== 'page') return;
     if (page.webContents.navigationHistory.canGoBack()) page.webContents.navigationHistory.goBack();
-    else if (hasResults) { mode = 'results'; setPageVisible(false); notifyState(); }
+    else if (hasResults) { mode = 'results'; value = lastQuery; setPageVisible(false); notifyState(); }
   });
   ipcMain.handle('grid:forward', event => {
     assertUiSender(event.sender.id);

@@ -235,7 +235,7 @@ API key 存放在系统安全存储或受保护的本地服务中，不写入网
 | GridBrowserProbe | 已冻结的 Swift/AppKit/WebKit 历史对照样机，可打开真实网页；尚非正式内核 |
 | GridCore | 地址栏网址与查询分流及单元测试 |
 | 搜索交互原型 | 录制结果、延后总结与失败状态；不执行在线检索 |
-| Electron M0 首个切片 | 已实现网址直达、Search/Fetch 请求与 A/B 阅读入口；本地夹具网页已在窗口中打开，真实 API key 尚未端到端复验；不等于 M0 通过 |
+| Electron M0 首个切片 | 已实现网址直达、Search/Fetch 请求与 A/B 阅读入口；2026-11-02 真实 key 的单场景搜索、Fetch、原页及返回结果实测通过，见[记录](./docs/SMOKE_ELECTRON_2026-11-02.md)；不等于 M0 通过 |
 | 本地任务夹具 | 导航、表单、iframe、下载测试页面 |
 | Chromium G1 构建脚本 | 固定 stable 版本的本机实验；完整内核构建仍未通过 |
 

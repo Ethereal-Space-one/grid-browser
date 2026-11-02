@@ -1,4 +1,4 @@
-# Grid 技术方案与实施路线（v1.3）
+# Grid 技术方案与实施路线（v1.4）
 
 > 2026-11-02。配套主文件：[PLAN.md](./PLAN.md)。本文件回答“如何把意图优先的开源浏览器做出来”，不改变 PLAN.md 的产品目标。Grid 是当前产品名，早期计划使用 Lattice 开发代号。
 > 状态：实施方案。技术选型中标为“候选”的内容须经过对应决策门验证；本文不把 PoC 当成已完成的浏览器。
@@ -37,7 +37,7 @@
 
 ## 2. 总体架构
 
-**M0 原型**：依托现有 Chromium，用扩展或受限 CDP/Playwright 实验壳连接 Search/Fetch、A/B 阅读视图和可见、可接管的 Agent 操作；不新建浏览器内核，也不把实验接口视为正式安全边界。下图仅是 M0 通过、独立 fork ADR 获批后的候选架构。
+**M0 原型**：采用 Electron 外壳及其打包的 Chromium，用受限 CDP 连接 Search/Fetch、A/B 阅读视图和可见、可接管的 Agent 操作。本机 stdio/MCP 桥接与应用编排先用 TypeScript/Node 一种语言实现，隔离资料档与测试权限。此原型只能验证用户是否觉得流程有用，不能证明浏览器主进程动作闸门与可信预览安全模型。下图仅是 M0 通过、独立 fork ADR 获批后的候选架构。
 
     用户
       │
@@ -66,7 +66,7 @@
 
 | 层 | M0 或后续候选 | 理由与限制 |
 |---|---|---|
-| 原型浏览器 | 现有 Chromium + 扩展或受限 CDP/Playwright 实验壳 | 最小改动验证核心动线；实验资料档与权限隔离，不代表日用浏览器安全性 |
+| 原型浏览器 | Electron 外壳 + 打包的 Chromium + 受限 CDP；TypeScript/Node | 三平台复用一份应用代码的假设待 CI 验证；先测核心动线，实验资料档与权限隔离不代表日用浏览器安全性 |
 | 独立浏览器候选 | 跟踪 Chromium stable 的薄补丁 fork，C++ | 仅在独立 ADR 证明必要性、维护团队及安全更新能力后进入实施 |
 | 媒体与网页平台 | Chromium 媒体管线、系统音视频设备与浏览器权限 | 以实际 Grid 安装包验证编解码、MSE、EME/CDM、硬件回退、WebRTC 和系统集成；逐项记录许可与分发限制 |
 | 独立浏览器窗口候选 | Chromium 原生 UI/Views，最少改动 | fork ADR 通过后保留惯用导航与无障碍行为，降低 patch 面积 |
@@ -82,7 +82,7 @@ Rust Broker 是后期候选，不是 M0 前置条件或安全性的替代品。�
 
 ### 2.2 内核决策门 G1
 
-G1 先判定产品链路是否值得独立浏览器实现：在现有 Chromium 中用扩展或受限 CDP/Playwright 实验壳，验证“搜索结果 → A/B 阅读或原页 → Agent 可见、可暂停、可接管地操作”，与惯用浏览器同任务对照。原型期沿用现有 Chromium 的安全更新，不把 CDP 开放给普通网页或公网。通过后才比较继续集成、独立壳与 Chromium fork；fork 需单独 ADR，证明团队规模、上游自动合并、跨平台构建/回归及安全更新演练。WebKit 对照样机仍用于能力比较，不默认拼接双登录态。基础能力矩阵见 [浏览器基建矩阵](./docs/BROWSER_FOUNDATIONS.md)。
+G1 先判定产品链路是否值得独立浏览器实现：M0 用 Electron 外壳、打包的 Chromium 与受限 CDP，验证“搜索结果 → A/B 阅读或原页 → Agent 可见、可暂停、可接管地操作”，与开发者惯用浏览器同任务对照。Swift/WebKit 样机冻结，仅作历史对照，不再扩展。Tauri 在 macOS 使用系统 WKWebView，按当前目标会重遇现有样机的自动化与生态限制；这是路线判断，具体能力缺口仍待同任务实测。[Tauri WebView 版本说明](https://v2.tauri.app/reference/webview-versions/) Electron 的精确版本、安全更新节奏及平台限制**待核对官方资料**；原型不得把 CDP 暴露给网页或公网，并须遵守隔离、沙箱、权限与 IPC 检查。[Electron 安全建议](https://www.electronjs.org/docs/latest/tutorial/security) 通过用户价值门后才比较继续使用独立壳与 Chromium fork；fork 需单独 ADR，证明团队规模、上游自动合并、跨平台构建/回归、安全更新演练及同负载收益。Electron 内存和启动速度不作为原型成功指标，正式路线决策仍同负载测试。基础能力矩阵见 [浏览器基建矩阵](./docs/BROWSER_FOUNDATIONS.md)。
 
 Chromium 上游已采用频繁 stable 更新及每周安全刷新；Grid 的 fork 若不能跟进，就不具备公开浏览器的安全基础。[Chromium 发布周期](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/process/release_cycle.md)、[安全更新说明](https://chromium.googlesource.com/chromium/src/+/main/docs/security/updates.md)
 
@@ -149,9 +149,9 @@ Search API 与模型 API 是两个独立接口。模型内建搜索可能不给�
 
 ### 4.2 首次使用与部署
 
-首启不要求用户申请第三方 key。默认 relay 方案若采用项目服务器，用户查询会经过该服务器及下游提供者；这与低监控目标存在张力。发布前须公开实际处理的查询/IP/元数据、日志策略、保留期限、删除方式、下游去向、滥用防护和完整自托管方法；未定参数标“待决定”。用户可改用自带 key、自己的服务或本地模型。默认服务故障时，普通浏览器导航与已配置的搜索提供者继续可用。
+原型默认由开发者配置自带 key 或本地模型，提供短而可复制的接入步骤；密钥只在受控本地进程存储，不进入网页。免 key relay 降为后续候选，不是 T0/T2 的前置条件。若未来采用项目服务器，用户查询会经过该服务器及下游提供者；这与低监控目标存在张力。发布前须公开实际处理的查询/IP/元数据、日志策略、保留期限、删除方式、下游去向、滥用防护和完整自托管方法；未定参数标“待决定”。relay 故障时，普通浏览器导航与已配置的搜索提供者仍应可用。
 
-这项服务的运行成本是开放项目的真实基础设施负担；不把费用转嫁成首次安装的配置劳动，也不假设公共服务可以无限制免费开放。M2 发布前须拿出可持续的运营和降级方案。
+若以后提供公共 relay，其运行成本是开放项目的真实基础设施负担；需另行制定可持续的运营和降级方案。M2 以前不以 relay 或免 key 为验收条件。
 
 ### 4.3 搜索评价
 
@@ -182,7 +182,7 @@ OpenAI 官方文档描述 Responses 的工具调用；Claude 使用 Messages 的
 
 ## 6. Agent：浏览器执行权永远不交给模型
 
-本节描述目标安全约束。M0 的扩展或 CDP/Playwright 实验壳只在隔离资料档和受限测试站点验证体验，不宣称已有 Browser Service 级权限闸门；发布级能力仍需按选定架构实现并测试。
+本节描述目标安全约束。M0 的 Electron/CDP 实验壳只在隔离资料档和受限测试站点验证体验，不宣称已有 Browser Service 级权限闸门或可信预览；发布级能力仍需在最终内核方案上单独实现并测试。
 
 ### 6.1 最小工具面
 
@@ -216,7 +216,7 @@ Browser Service 对每次写动作核验 origin、verb、taskId、文档版本�
 
 ### 6.4 外部 Agent 接入与浏览器状态
 
-内置 Agent 与外部客户端共用 Browser Service 的能力和预览闸门。外部客户端首选随 Grid 分发的本机 `stdio` 桥接程序：客户端启动桥接，Grid 显示连接者与授权范围，用户选定允许的标签/站点和时间；桥接经已验证的本机 IPC 访问浏览器，不复制 Cookie 或在网页中安装脚本。提供可复制的客户端配置与连接状态，避免要求用户手工寻找端口或令牌。对于只支持 Streamable HTTP 的客户端，可选择启用 loopback 端点，按需配对、鉴权、校验 Host/Origin 并限制速率；默认不监听。MCP 当前标准传输包括 `stdio` 和 Streamable HTTP。[MCP 传输规范](https://modelcontextprotocol.io/specification/draft/basic/transports)
+M0/M1 即提供本机 `stdio`/MCP 桥接，让常用 AI 编程工具在几步内读取获授权页面，并记录首次接入步骤与耗时；M4 再扩展正式动作能力。目标架构中，内置 Agent 与外部客户端共用 Browser Service 的能力和预览闸门：客户端启动桥接，Grid 显示连接者与授权范围，用户选定允许的标签/站点和时间；桥接经已验证的本机 IPC 访问浏览器，不复制 Cookie 或在网页中安装脚本。原型的 Electron 主进程桥接不等于此目标安全边界。提供可复制的客户端配置与连接状态，避免要求用户手工寻找端口或令牌。对于只支持 Streamable HTTP 的客户端，可选择启用 loopback 端点，按需配对、鉴权、校验 Host/Origin 并限制速率；默认不监听。MCP 当前标准传输包括 `stdio` 和 Streamable HTTP。[MCP 传输规范](https://modelcontextprotocol.io/specification/draft/basic/transports)
 
 Grid 的任务和标签状态由浏览器本地维护，通过显式 taskId、tabId、能力版本和短时授权句柄连接请求。撤销授权、关闭标签或人类接管后，旧连接的相关调用即失效。现有静态 serve 监听 0.0.0.0，不能复用为持有 API key 或真实浏览器权限的服务。[MCP 本地服务防护](https://py.sdk.modelcontextprotocol.io/run/deploy/)
 
@@ -244,7 +244,7 @@ Grid 的任务和标签状态由浏览器本地维护，通过显式 taskId、ta
 
 ### 8.1 桌面平台
 
-先在 macOS 验证端到端体验，同时在 CI 中尽早构建 Windows 与 Linux，避免平台抽象在后期才出现。平台差异集中在 secure storage、安装与自动更新、系统代理、通知、文件选择器、默认浏览器注册和辅助技术接口。跨平台共享搜索、模型、Agent、证据的契约和测试夹具。
+开发者优先，首发 macOS；Linux 为第二优先（nightly 或社区支持版本），Windows 正式适配待产品价值验证后启动。原型阶段不承诺三平台稳定发布，但 CI 同时构建 macOS、Linux、Windows，以尽早暴露平台差异；CI 成功不等于安装、兼容和安全验收通过。平台差异集中在 secure storage、安装与自动更新、系统代理、通知、文件选择器、默认浏览器注册和辅助技术接口。跨平台共享搜索、模型、Agent、证据的契约和测试夹具。macOS 分发尽早准备 Apple 开发者账号，并走通一次 Developer ID 签名、公证和安装验证；账号费用及流程细节**待核对官方说明**。[Apple 公证文档](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
 
 ### 8.2 扩展与数据迁移
 
@@ -272,13 +272,13 @@ M0 只保留足以跑三项代表任务的技术栈；以下状态指**原型排
 
 | 资产/技术 | M0 处置 | 理由与恢复条件 |
 |---|---|---|
-| 现有 Chromium + 扩展或受限 CDP/Playwright | 保留，二选一做纵向原型 | 复用浏览能力，先验证 A/B 搜索阅读和 Agent 控制；不把实验权限作为发布架构 |
+| Electron + 打包的 Chromium、受限 CDP | 保留，M0 唯一产品原型 | TypeScript/Node 单一编排语言；验证 A/B 阅读、真实原页和 Agent 控制的用户价值，不能验证正式安全模型 |
 | TypeScript 搜索交互样机与本地任务夹具 | 保留并接入真实结果 | 已有界面和任务基础；替换录制数据时保留失败状态 |
-| Swift/WebKit 对照样机 | 保留为 G1 对照，冻结产品功能扩展 | 继续测内核差异；不同时建设第二套主产品 |
-| 旧 Node Search/Fetch 适配 PoC | 只迁移最小检索契约与实测夹具 | 先解决展示条款、第二来源和 Fetch 失败；不整体移植 CLI |
-| Rust Broker、Chromium C++/Mojo、Protobuf | 冻结实施，保留候选设计 | 仅在独立浏览器/进程边界 ADR 后启用 |
-| 旧 Python/Node .lattice 与四端验证器 | 冻结迁移，独立保留 | 核心任务通过后再修 SPEC 与互操作；不阻塞 M1/M2 |
-| 公共 relay | 冻结部署决定，先完成隐私和自托管方案 | 不以项目服务器成为未说明的查询入口 |
+| Swift/WebKit 对照样机 | 冻结，仅留历史对照 | 不再扩展功能；已有实测可供 G1 参考 |
+| 旧 Node Search/Fetch 适配 PoC | 仅迁移最小检索契约与夹具 | 用 TypeScript/Node 在 Electron 原型重建必要路径，不整体移植旧 CLI |
+| Rust Broker、Chromium C++/Mojo、Protobuf | 推迟决策，冻结实施 | 原型验证后再决定是否引入 Rust；C++/Mojo 仅随正式 fork ADR 评估 |
+| 旧 Python/Node .lattice 与四端验证器 | 冻结，仅作后续证据模块参考 | 核心任务通过后再修 SPEC 与互操作；不阻塞 M1/M2 |
+| 公共 relay | 后续候选，原型不部署 | 默认自带 key/本地模型；先核对权利、隐私与自托管 |
 
 下列目录是**独立浏览器路线获批后的候选**，不是 M0 必须建立的结构。
 
@@ -305,27 +305,27 @@ M0 只保留足以跑三项代表任务的技术栈；以下状态指**原型排
 
 | 阶段 | 依赖 | 交付 | 不能宣称完成的情况 |
 |---|---|---|---|
-| T0：任务基线与原型 | 无 | 三项代表任务、惯用浏览器基线、现有 Chromium 上的搜索 → A/B 阅读 → 原页 → Agent 预览/接管纵向原型；Fetch 缺口实测及 G1 能力清单 | 只有静态图、内部自评或单一 PoC；无法比较 A/B、来源偏差和接管效果 |
+| T0：任务基线与原型 | 无 | macOS 开发者三项代表任务、惯用浏览器基线、Electron/CDP 的搜索 → A/B 阅读 → 原页 → Agent 预览/接管纵向原型；本机 stdio/MCP 只读桥接、首次接入步骤与耗时、JSON 操作回执导出、Fetch 缺口实测及 G1 能力清单 | 只有静态图、内部自评或单一 PoC；无法比较 A/B、来源偏差和接管效果；把原型当作正式安全验证 |
 | T1：浏览器路径决策与基础 | T0 | 根据任务证据选继续集成/独立壳/fork；fork 另作 ADR；对应安装包的浏览、媒体、会议、PDF/Passkey/离线能力与安全更新矩阵 | 把原型当正式浏览器；fork 无团队与自动更新演练；常用任务仍须回惯用浏览器 |
-| T2：搜索闭环 | T1 | Search adapters、短总结与结果列表、默认免 key 体验、原页返回、失败回退 | 结果被总结阻塞或用户无法打开来源 |
+| T2：搜索闭环 | T1 | Search adapters、短总结与结果列表、自带 key/本地模型默认路径、原页返回、失败回退；relay 后置 | 结果被总结阻塞、用户无法打开来源或原型依赖未核对的公共 relay |
 | T3：意图连续性 | T2 | 跨页面上下文、比较、恢复任务、无需手动建空间 | 多标签任务仍需重复搜索和复制粘贴 |
-| T4：AI 兼容与 Agent | T1–T3 | Model capability matrix、真实页面动作、可信预览、原页实时状态、暂停/接管、少配置的本机 MCP 接入、恶意页面测试 | 只在 mock executor 或单一模型上通过；预览和动作脱节或外部 Agent 须复制登录态 |
+| T4：AI 兼容与 Agent | T1–T3 | Model capability matrix、真实页面动作、最终内核方案上的可信预览与主进程闸门、原页实时状态、暂停/接管、本机 MCP 动作扩展、JSON 操作回执导出、恶意页面测试 | 只在 Electron 原型或 mock executor 上通过；预览和动作脱节或外部 Agent 须复制登录态 |
 | T5：按需证据（可后移） | 核心体验稳定 | 就地核对、修正后的 .lattice、四端互操作；不作为首版发布依赖 | 把锚点命中当成语义正确 |
 | T6：开放发布 | T1–T4；T5 可并行或后置 | 选定路线的安装/集成包、构建说明、许可、贡献、安全响应、30 秒搜索与受控 Agent 演示；独立浏览器才要求相应平台发布矩阵 | 外部人无法安装、复现或报告问题 |
 
 ### 10.1 最小可公开体验
 
-“Grid 的第一个可体验版本”至少应做到：可独立安装扩展/实验包、查询显示来源与短总结、A/B 阅读均可试用、真实原页可打开并返回、Agent 的测试任务可预览和接管、失败时浏览不受影响、反馈入口明确。T0 原型不代表可日用浏览器；真实 Agent 的广泛网站支持在 T4 通过权限、安全和可靠性门槛后开放。
+“Grid 的第一个可体验版本”至少应做到：macOS 可独立安装 Electron 实验包，以自带 key 或本地模型显示查询来源与短总结，A/B 阅读均可试用，真实原页可打开并返回，本机 stdio/MCP 桥接能被常用 AI 编程工具在少量步骤内接入获授权页面，Agent 的测试任务可预览和接管，JSON 回执可导出，失败时浏览不受影响，反馈入口明确。T0 原型不代表可日用浏览器；真实 Agent 的广泛网站支持在 T4 通过权限、安全和可靠性门槛后开放。
 
 ### 10.2 工程门槛
 
 - 安全：站点隔离与沙箱不降级；上游 stable 安全更新有自动监测、补丁回归和紧急发布机制。目标是安全更新延迟以天计，实际数值公开披露。
 - 可靠：浏览器崩溃恢复、标签恢复、搜索中断、模型中断、网络断开、Agent 中断都有测试。
-- 性能：同设备同网页测冷启动、输入响应、首个可用搜索结果、P50/P95 任务时间、完整进程树内存与能耗；先立基线再定优化目标。
+- 性能：原型阶段以同任务完成与操作体验为判断，Electron 内存和冷启动不作为 T0 成功指标；正式路线决策仍在同设备同网页测冷启动、输入响应、首个可用搜索结果、P50/P95 任务时间、完整进程树内存与能耗，先立基线再定优化目标。
 - 隐私：遥测默认最小化，浏览记录不上传；用户可查看并删除任务数据、缓存与证据。
 - 兼容：常用网站、登录、上传下载、中文输入法、PDF/视频、辅助技术与选定扩展形成固定回归集。
 - 媒体与网页平台：以真实 Grid 安装包验证编解码及网站播放、字幕、全屏、画中画、后台音频、会议设备、打印/PDF、Passkey 和离线网页；公布受保护内容与平台差异，追踪硬件回退、掉帧和能耗。
-- Agent 控制：从当前页连接、识别目标、暂停及接管的步骤和时间进入任务基线；预览与动作绑定同一页面版本，页面变化后失效；敏感动作逐项确认；键盘与屏幕阅读器可操作；外部连接不复制登录态。
+- Agent 控制：从常用 AI 编程工具首次连接、读取授权页、识别目标、暂停及接管的步骤和时间进入任务基线；JSON 回执记录读页、动作、每步依据与结果；正式预览与动作绑定同一页面版本，页面变化后失效；敏感动作逐项确认；键盘与屏幕阅读器可操作；外部连接不复制登录态。
 
 ---
 
@@ -339,7 +339,7 @@ M0 只保留足以跑三项代表任务的技术栈；以下状态指**原型排
 4. 发布真实任务演示：从输入问题到短总结、结果、原页、按需 AI 帮忙；同时公开失败场景。
 5. 用用户任务完成率、留存、兼容、崩溃、安全更新、外部贡献者与集成质量衡量进展。仓库星数只是辅助。
 
-已有 BrowserOS 是带 AI Agent 的开源 Chromium fork，因此“内置 AI”本身并不构成领先。Grid 的待验证差异是：由用户查询驱动的低干扰内容入口、可追溯且可替换的检索、A/B 阅读路线，以及始终可控的真实页面操作。[BrowserOS 项目说明](https://github.com/browseros-ai/BrowserOS/blob/main/README.BrowserOS.md)
+已有 BrowserOS 是带 AI Agent 的开源 Chromium fork；其 neo 页面还宣称连接 Codex 等工具并保存可回放会话，因此“内置 AI”“一键 MCP”或“回放”本身不能构成独有叙事。Grid 的待验证组合是：用户查询驱动的低干扰入口、可追溯且可替换的检索、A/B 阅读路线，以及可暂停接管的真实页面操作。2026-11-02 的竞品核对和第 9 项待评估方向见 [PLAN.md §9.1](./PLAN.md#91-竞品核对与待评估方向2026-11-02)。[BrowserOS 项目说明](https://github.com/browseros-ai/BrowserOS/blob/main/README.BrowserOS.md)、[BrowserOS neo](https://browseros.com/)
 
 ---
 
@@ -348,9 +348,10 @@ M0 只保留足以跑三项代表任务的技术栈；以下状态指**原型排
 | 风险 | 决策门或处理 |
 |---|---|
 | **最高优先级：Chromium fork 跟不上安全更新** | fork 只在独立 ADR 确认足够维护团队、自动合并/构建、跨平台回归和安全更新演练后启动；做不到不 fork，也不以实验壳冒充日用浏览器 |
+| Electron 原型被误当正式安全证明 | M0 只验用户价值；主进程闸门与可信预览必须在最终内核方案重新实现、攻击测试与验收；Electron 精确版本、更新策略及已知限制待核对官方资料 |
 | Fetch 覆盖缺口使 B 阅读层不可用 | 旧样本仅作风险信号；按站点重测，验收第二获取路径和原页回退后再决定 B |
 | Search/Fetch 内容使用权待核对 | 核对结果页展示、缓存、正文再分发和摘要引用；无结论不承诺公开版能力 |
-| relay 处理全部默认查询 | 明示查询/IP/日志、保留期限与下游去向，验证可完全自托管和 BYOK |
+| 后续 relay 处理用户查询 | 原型默认自带 key/本地模型；若未来上线 relay，明示查询/IP/日志、保留期限与下游去向，验证可完全自托管 |
 | 界面因 AI 变复杂 | 每个新增 UI 在真实任务测试中证明必要；默认界面保持地址栏、结果、网页 |
 | AI 适配名义兼容、能力实际缺失 | 能力矩阵 + 供应商原生接口合约测试 + 明确降级 |
 | 默认服务被滥用或停服 | 免 key 服务有滥用控制、隐私说明与自托管/BYOK 回退；浏览本体不依赖它 |
@@ -370,9 +371,9 @@ M0 只保留足以跑三项代表任务的技术栈；以下状态指**原型排
 
 1. **代表任务与基线**：先用 PLAN.md 的三项任务与惯用浏览器对照，再修订 20–30 项分解任务；记录来源多样性、干扰、Agent 接管与失败恢复。
 2. **Search/Fetch 权利与可靠性核对**：核对展示/缓存/正文/摘要边界；重测 Fetch 失败类型，接入第二检索或获取路径，并验证原页回退。
-3. **低成本纵向原型**：在现有 Chromium 中二选一使用扩展或受限 CDP/Playwright，串起查询结果、A/B 阅读、原页、Agent 预览/暂停/接管；测试资料档隔离。
+3. **Electron 纵向原型**：用 Electron/Chromium 和受限 CDP 串起查询结果、A/B 阅读、原页、Agent 预览/暂停/接管；测试资料档隔离。Swift/WebKit 样机冻结；原型仅验用户价值。
 4. **最小适配契约**：保留 SearchHit、PageHandle 与动作状态等必要字段；在真实任务中验证后才冻结跨语言 schema，不提前建设 Rust/C++/Protobuf 全栈。
-5. **隐私与首次体验**：写出 relay 的字段、保留期限、删除与完全自托管方案，确定合法免 key 路径；未完成前不部署公共 relay。
+5. **开发者首次体验**：提供自带 key/本地模型路径和本机 stdio/MCP 桥接，记录从 AI 编程工具接入的步骤与耗时；JSON 回执可导出。relay 隐私、权利与完全自托管方案后续研究，未完成前不部署。
 6. **G1 决策**：比较继续集成、独立壳与 fork 的用户价值、媒体/日用能力及维护成本；需要 fork 时提交独立 ADR 和安全更新演练。
 7. **证据格式（后置）**：核心体验稳定后修正 .lattice SPEC 签名范围及四端一致性，作为按需核验能力独立验收。
 
@@ -388,5 +389,6 @@ M0 只保留足以跑三项代表任务的技术栈；以下状态指**原型排
 - [OpenAI Docs：工具调用](https://developers.openai.com/api/docs/guides/function-calling)、[Claude 工具调用](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)、[Gemini Interactions](https://ai.google.dev/gemini-api/docs/interactions-overview)、[llama.cpp server](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)。
 - [MCP 传输规范](https://modelcontextprotocol.io/specification/draft/basic/transports)、[WebDriver BiDi 草案](https://www.w3.org/TR/webdriver-bidi/)、[WebMCP 预览](https://developer.chrome.com/docs/modern-web-guidance/guides/webmcp/webmcp)、[Chrome Agent 安全](https://developer.chrome.com/docs/agents/security)。
 - [BrowserOS 开源项目](https://github.com/browseros-ai/BrowserOS/blob/main/README.BrowserOS.md)。
+- [Electron 安全建议](https://www.electronjs.org/docs/latest/tutorial/security)、[Electron 发布支持策略](https://www.electronjs.org/docs/latest/tutorial/electron-timelines)、[Tauri WebView 版本说明](https://v2.tauri.app/reference/webview-versions/)、[Apple 公证流程](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)。Electron 精确版本、更新节奏、平台限制与 Apple 账号费用/流程细节待专项核对。
 
 一手资料证明接口、实现或发布状态；“这条路线会成为第一”的判断仍须由产品对照、兼容、安全和社区采用实测支持。

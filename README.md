@@ -1,13 +1,13 @@
 # Grid Browser
 
-Grid 是从用户意图出发的开源浏览器：让人更快找到、理解并使用真实网页，同时始终掌控方向。当前仍处 **T0/G1 对照实验**，不是可日用的正式浏览器。
+Grid 是从用户意图出发的开源浏览器：让人更快找到、理解并使用真实网页，同时始终掌控方向。当前仍处 **T0/G1 对照实验**，不是可日用的正式浏览器。下一步的产品原型采用 Electron/Chromium，首发面向 macOS 开发者；现有 Swift/WebKit 样机已冻结，仅保留历史对照。
 
 从 [PLAN.md](./PLAN.md) 的用户目标开始，技术路线和验收门槛见 [TECHNICAL_PLAN.md](./TECHNICAL_PLAN.md)。Grid 早期使用 Lattice 开发代号；实验性 `.lattice` 证据格式是独立的按需能力。
 
 ## 当前代码
 
 - `Sources/GridCore/OmniboxIntent.swift`：网址与查询分流；网址不调用模型，查询走明确的搜索回退。
-- `Sources/GridBrowserProbe/main.swift`：Swift 6/AppKit/WebKit 对照样机，包含地址栏、前进后退、重载、标签和真实网页。
+- `Sources/GridBrowserProbe/main.swift`：已冻结的 Swift 6/AppKit/WebKit 对照样机，包含地址栏、前进后退、重载、标签和真实网页。
 - `fixtures/web/`：本地导航、动态表单、iframe、下载及 VP9/Opus 音视频/字幕夹具。
 - `prototypes/search-lab/`：可交互的结果优先搜索页，用录制数据验证信息层级与失败状态；不执行实时检索。
 - `docs/T0_TASKS.md`：30 个可复跑用户任务（含 Agent 预览/接管和媒体/会议）；`docs/t0-results.template.csv` 是记录模板，参与者原始记录不进入 Git。
@@ -40,4 +40,4 @@ python3 scripts/serve-fixtures.py
 
 ## 当前限制与下一步
 
-样机搜索使用外部 Bing 页面；录制数据搜索原型尚未接入浏览器地址栏。两者分别验证真实网页浏览与搜索页交互，不替代 T2 搜索闭环。Agent 控制预览仍在计划阶段，A01–A04 的真实执行记为“未实现”；V01–V02 的媒体与会议任务尚未实测。Chromium G1 完整构建、Agent、证据和安全更新通道尚未完成。下一步完成 T0 用户任务基线与 Agent 控制预览原型，同时推进包含媒体基建的内核决策门，再在选定的浏览器中接入真实搜索页。
+样机搜索使用外部 Bing 页面；录制数据搜索原型尚未接入浏览器地址栏。两者分别验证真实网页浏览与搜索页交互，不替代 T2 搜索闭环。Electron 原型与本机 stdio/MCP 桥接尚未实现。Agent 控制预览仍在计划阶段，A01–A04 的真实执行记为“未实现”；V01–V02 的媒体与会议任务尚未实测。Chromium G1 完整构建、Agent、证据和安全更新通道尚未完成。下一步建立开发者任务基线，并在 Electron 中实现查询、A/B 阅读、原页和可接管的 Agent 纵向原型；该原型只验证用户价值，正式安全模型另行验收。

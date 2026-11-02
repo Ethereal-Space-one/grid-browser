@@ -1,20 +1,20 @@
-# Grid 技术方案与实施路线（v1.2）
+# Grid 技术方案与实施路线（v1.3）
 
-> 2026-10-31。配套主文件：[PLAN.md](./PLAN.md)。本文件回答“如何把意图优先的开源浏览器做出来”，不改变 PLAN.md 的产品目标。Grid 是当前产品名，早期计划使用 Lattice 开发代号。
+> 2026-11-02。配套主文件：[PLAN.md](./PLAN.md)。本文件回答“如何把意图优先的开源浏览器做出来”，不改变 PLAN.md 的产品目标。Grid 是当前产品名，早期计划使用 Lattice 开发代号。
 > 状态：实施方案。技术选型中标为“候选”的内容须经过对应决策门验证；本文不把 PoC 当成已完成的浏览器。
 
 ---
 
 ## 0. 永不偏离的产品约束
 
-用户打开 Grid，是为了**自己决定要做什么，并更快地在真实网页上完成它**。每一项技术能力都必须通过以下问题：
+用户打开 Grid，是为了**自己决定要做什么，在少受推荐流牵引的入口查找与阅读，并可控地完成网页操作**。每一项技术能力都必须通过以下问题：
 
 1. 它是否减少了从意图到可用结果、原页或完成动作的时间与认知负担？
 2. 它是否保留用户对方向、页面、登录态和 Agent 动作的控制？
 3. 没有 AI、模型故障或网络受限时，浏览器是否仍能正常使用？
 4. 它能否被外部用户独立安装、复现、检查和贡献？
 
-第一屏只有标准浏览器输入入口；搜索页是短总结加结果列表；网页是完整网页；Agent、比较、证据按需出现。浏览器被 Agent 使用时，控制预览与暂停入口始终可信且易见。不得为了展示技术而增加常驻侧栏、模式选择、强制会话、证书流程或配置向导。
+第一屏只有标准浏览器输入入口；搜索页是短总结加结果列表；阅读视图保留 A（真实原页）与 B（Fetch 正文优先）两条待选路线；Agent、比较、证据按需出现。浏览器被 Agent 使用时，控制预览与暂停入口始终可信且易见。不得为了展示技术而增加常驻侧栏、模式选择、强制会话、证书流程或配置向导。
 
 ---
 
@@ -24,7 +24,7 @@
 |---|---|---|---|
 | 输入网址 | 立即进入真实网页 | 本地识别网址，走浏览器导航；不调用模型 | 不把网址误送检索；前进后退、登录与下载正常 |
 | 输入查询 | 上方简短总结、下方可直接打开的结果 | 并行取得结果、异步总结；结果不等模型 | 无模型时仍有结果；首屏不被总结遮住 |
-| 打开结果 | 原页和返回结果的清晰路径 | 在同一资料档导航，保留查询和滚动状态 | 返回无需重搜；页面权限按站点管理 |
+| 打开结果 | A 为真实原页；B 为带来源/抓取时间的干净正文及原页入口 | 保留查询和返回路径；B 抓取失败立即回退原页 | 两路线可同任务比较；B 不冒充原页或已核对事实 |
 | 比较页面 | 两页及其与原问题的关系 | 读取用户选定的页面，保留来源与位置 | 不自动读取其他标签或私密页面 |
 | 请求 AI 帮忙 | 授权范围、过程、暂停和接管 | 由浏览器发能力授权，执行可观察动作 | 人类输入抢占；未知结果不重试写操作 |
 | 连接外部 Agent | 当前会话的受限连接、客户端身份与范围 | 通过本机受控桥接共用内部能力面，不复制 Cookie 或另建浏览器资料档 | 少量步骤可接入；撤销后旧调用立刻失效 |
@@ -36,6 +36,8 @@
 ---
 
 ## 2. 总体架构
+
+**M0 原型**：依托现有 Chromium，用扩展或受限 CDP/Playwright 实验壳连接 Search/Fetch、A/B 阅读视图和可见、可接管的 Agent 操作；不新建浏览器内核，也不把实验接口视为正式安全边界。下图仅是 M0 通过、独立 fork ADR 获批后的候选架构。
 
     用户
       │
@@ -62,24 +64,25 @@
 
 ### 2.1 推荐技术栈
 
-| 层 | 首选 | 理由与限制 |
+| 层 | M0 或后续候选 | 理由与限制 |
 |---|---|---|
-| 网页内核与浏览器基础 | 跟踪 Chromium stable 的薄补丁 fork，C++ | 三大桌面平台复用浏览器基本能力、扩展体系与成熟安全隔离；必须建立频繁上游合并能力 |
+| 原型浏览器 | 现有 Chromium + 扩展或受限 CDP/Playwright 实验壳 | 最小改动验证核心动线；实验资料档与权限隔离，不代表日用浏览器安全性 |
+| 独立浏览器候选 | 跟踪 Chromium stable 的薄补丁 fork，C++ | 仅在独立 ADR 证明必要性、维护团队及安全更新能力后进入实施 |
 | 媒体与网页平台 | Chromium 媒体管线、系统音视频设备与浏览器权限 | 以实际 Grid 安装包验证编解码、MSE、EME/CDM、硬件回退、WebRTC 和系统集成；逐项记录许可与分发限制 |
-| 浏览器窗口 | Chromium 原生 UI/Views，最少改动 | 保留惯用导航与无障碍行为，降低 patch 面积 |
-| 搜索/任务页面 | Chromium WebUI，TypeScript + Lit，Mojo | 与 Chromium 构建、权限和本地化体系一致；避免再嵌一套桌面壳 |
+| 独立浏览器窗口候选 | Chromium 原生 UI/Views，最少改动 | fork ADR 通过后保留惯用导航与无障碍行为，降低 patch 面积 |
+| 搜索/任务页面 | M0 用 TypeScript 原型；fork 后候选 WebUI + Lit/Mojo | 先验证用户动线；不在原型期建设跨进程 UI 协议 |
 | Agent 控制预览 | 浏览器可信 UI + 页面目标高亮 | 授权和操作摘要由浏览器绘制；页面只提供目标数据，不能伪造控制界面 |
-| AI Broker | 独立 Rust 进程，版本化 IPC | 适合流式网络、状态与权限前检查；不拥有浏览器最终权限。与现有 Node PoC 共存，逐步迁移经过验证的逻辑 |
+| AI Broker（后续候选） | 独立 Rust 进程，版本化 IPC | 仅在独立浏览器 ADR 后评估；M0 复用最小适配逻辑，不并建完整 Broker |
 | 本地状态 | 浏览器资料档 + SQLite/内容寻址文件 | 任务元数据、来源与缓存分开；密钥使用系统安全存储 |
 | 扩展入口 | MV3 兼容性测试 + 外部 MCP | 扩展是浏览器兼容问题；MCP 是 Agent 接入问题，二者不能混为一谈 |
 
-Rust Broker 是推荐实现，不是安全性的替代品。进程边界、IPC 输入校验、浏览器主进程闸门和权限撤销都必须实际实现。现有 lattice Node CLI 可继续作为独立验证器和测试夹具；不应把它直接当作拥有浏览器权限的常驻服务。
+Rust Broker 是后期候选，不是 M0 前置条件或安全性的替代品。进程边界、IPC 输入校验、浏览器主进程闸门和权限撤销都必须实际实现。现有 lattice Node CLI 可继续作为独立验证器和测试夹具；不应把它直接当作拥有浏览器权限的常驻服务。
 
-Browser Service 启动并监管 Broker；两者优先采用版本化 Protobuf 消息，经操作系统本机管道通信（macOS/Linux 为 Unix domain socket，Windows 为 named pipe）。通道需校验对端进程身份、请求大小和授权令牌，不开放为可被网页访问的本地 HTTP 服务。协议升级支持能力协商和旧版拒绝，避免浏览器与 Broker 版本错配后静默越权。
+若独立浏览器路线通过 ADR，Browser Service 才启动并监管 Broker；两者可采用版本化 Protobuf 消息，经操作系统本机管道通信（macOS/Linux 为 Unix domain socket，Windows 为 named pipe）。通道需校验对端进程身份、请求大小和授权令牌，不开放为可被网页访问的本地 HTTP 服务。协议升级支持能力协商和旧版拒绝，避免浏览器与 Broker 版本错配后静默越权。
 
 ### 2.2 内核决策门 G1
 
-PLAN.md 仍要求同负载比较。这里给出明确默认路线：**优先做 Chromium 原生 fork**。在 M0 用 WebView 原型与 Chromium 原型完成同一组任务，记录网站兼容、媒体播放与会议、PDF/打印、Passkey/离线网页、资料档/登录、扩展、真实 Agent 动作、性能、无障碍和上游维护。若 Chromium 方案无法维持安全更新或简洁体验，再提交 ADR 改路线；不要未经实测默认拼接 WebView 与 headless Chromium 两套登录态。基础能力与媒体决策门见 [浏览器基建矩阵](./docs/BROWSER_FOUNDATIONS.md)。
+G1 先判定产品链路是否值得独立浏览器实现：在现有 Chromium 中用扩展或受限 CDP/Playwright 实验壳，验证“搜索结果 → A/B 阅读或原页 → Agent 可见、可暂停、可接管地操作”，与惯用浏览器同任务对照。原型期沿用现有 Chromium 的安全更新，不把 CDP 开放给普通网页或公网。通过后才比较继续集成、独立壳与 Chromium fork；fork 需单独 ADR，证明团队规模、上游自动合并、跨平台构建/回归及安全更新演练。WebKit 对照样机仍用于能力比较，不默认拼接双登录态。基础能力矩阵见 [浏览器基建矩阵](./docs/BROWSER_FOUNDATIONS.md)。
 
 Chromium 上游已采用频繁 stable 更新及每周安全刷新；Grid 的 fork 若不能跟进，就不具备公开浏览器的安全基础。[Chromium 发布周期](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/process/release_cycle.md)、[安全更新说明](https://chromium.googlesource.com/chromium/src/+/main/docs/security/updates.md)
 
@@ -89,6 +92,7 @@ Chromium 上游已采用频繁 stable 更新及每周安全刷新；Grid 的 for
 |---|---|---|---|
 | 新标签与地址栏 | 输入入口、最近任务的轻量恢复入口 | 空白、输入中、网址/查询意图不确定 | 键盘直达、输入法不触发误提交、网址不经模型 |
 | 搜索页 | 查询、固定高度的短总结槽、可点结果列表 | 检索中、已有结果、总结中、仅结果、无结果、部分来源失败 | 结果先出现；总结不造成布局跳动；结果始终可打开 |
+| 阅读视图（A/B 待决） | 原页或带来源/时间的干净正文；均有回到结果与打开原页入口 | 加载、已抓取、抓取失败、内容不完整、返回原页 | B 不注入原页脚本；写操作在原页重新定位并授权 |
 | 真实网页 | 标准导航与网页内容 | 加载、登录、权限请求、下载、崩溃恢复 | 用户像普通浏览器一样完成常用网站任务 |
 | 比较/任务面板 | 仅在用户请求后出现，紧邻当前两页或动作 | 选页、授权、进行中、暂停、未知结果、接管 | 来源和下一步可见；Esc/关闭不丢页面状态 |
 | Agent 控制预览 | 目标高亮、动作摘要、可信来源和暂停入口 | 待执行、需确认、执行中、已观察、未知结果、过期 | 预览不冒充执行结果；页面变化后失效；人类操作可抢占 |
@@ -100,12 +104,12 @@ Chromium 上游已采用频繁 stable 更新及每周安全刷新；Grid 的 for
 
 ## 3. 内部契约：让模块真正可替换
 
-接口用版本化 schema 定义，并生成 Rust/C++/TypeScript 类型。避免让 UI 依赖供应商字段名或 Agent 依赖页面坐标。
+M0 先定义最小的搜索、页面与动作状态契约，避免 UI 依赖供应商字段名或 Agent 依赖页面坐标。跨语言 schema 及 Rust/C++/TypeScript 类型生成在独立浏览器路线获批后实施。
 
 ### 3.1 核心对象
 
 - **IntentContext**：id、原始输入、用户确认过的目标、创建时间、关联的标签与查询、状态。每次搜索自动生成；用户不需要手动创建“空间”。
-- **SearchHit**：规范化 URL、标题、摘要、来源、检索时间、发布日期（可空）、来源提供者、排序分数与解释字段。
+- **SearchHit**：规范化 URL、标题、摘要、来源、检索时间、发布日期（可空）、来源提供者、提供者原始顺序/分数、Grid 展示顺序与解释字段；不暗中使用画像或参与度排序。
 - **PageHandle**：profileId、tabId、documentId、navigationId、origin、revision。导航后 documentId 改变，旧节点引用全部失效。
 - **ModelCapabilities**：文字、图片、流式、工具调用、结构化输出、最大上下文、服务端状态等能力及约束。能力由适配器显式声明并通过合约测试验证。
 - **AgentGrant**：taskId、允许的 origin、动作 verbs、敏感数据范围、到期时间、用户确认状态。授权可撤销，默认最小范围。
@@ -134,20 +138,24 @@ Chromium 上游已采用频繁 stable 更新及每周安全刷新；Grid 的 for
 4. 结果列表先渲染，标题、URL、摘要和可用日期立刻可点。
 5. Model adapter 根据已返回的摘要生成两三句方向性总结；总结槽位置固定，不让页面跳动。
 6. 若摘要不足、来源互相矛盾或需要更强判断，再按需 Fetch/打开原页，更新核对标记。
-7. 点击结果进入真实浏览器页面；抓取失败不阻止用户打开原页。
+7. A 路线点击结果进入真实原页；B 路线先展示带来源与抓取时间的干净正文，交互时回到真实原页；抓取失败不阻止打开原页。两条路线待用户选择。
 8. 用户修改查询时取消旧请求，保留已显示内容到新结果可用。
 
 Search API 与模型 API 是两个独立接口。模型内建搜索可能不给出稳定、完整的结果列表，不能替代用户需要的搜索页。DeepSeek Search/Fetch 是首个适配器，至少另备一个合法可用的检索源，并保留普通网页搜索回退。[DeepSeek Search/Fetch 文档](https://api-docs.deepseek.com/guides/search/)
 
+**待核对的分发边界**：官方 Search 文档将 `snippet` 描述为供 UI 展示；这不足以直接确认结果列表展示、缓存期限、Fetch 正文保存或再分发、摘要引用第三方内容的权利。先核对 Search/Fetch 专项规则、开放平台条款和来源站点政策，再确定公开版能力；未得结论时标“待核对”。[Search/Fetch 文档](https://api-docs.deepseek.com/guides/search/)、[开放平台条款](https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html)
+
+历史 PoC 的 Fetch 约四分之一失败来自一次样本，不是可外推的故障率。按站点类型、动态性和拒绝原因重测，记录 Fetch 成功率、第二获取路径与一键原页回退；B 路线以此作为核心决策门，A 路线也不得把未抓取页面标成已核对。
+
 ### 4.2 首次使用与部署
 
-首启不要求用户申请第三方 key。提供一个开源、可自托管的默认检索/总结服务，用项目持有的服务器端凭据提供有限的免登录体验；公开提交的查询会发往何处、日志保留与删除规则。服务需有滥用防护和可观测性，但不得记录原始浏览历史。用户可一键改用自带 key、自己的服务或本地模型。默认服务故障时，普通浏览器导航与已配置的搜索提供者继续可用。
+首启不要求用户申请第三方 key。默认 relay 方案若采用项目服务器，用户查询会经过该服务器及下游提供者；这与低监控目标存在张力。发布前须公开实际处理的查询/IP/元数据、日志策略、保留期限、删除方式、下游去向、滥用防护和完整自托管方法；未定参数标“待决定”。用户可改用自带 key、自己的服务或本地模型。默认服务故障时，普通浏览器导航与已配置的搜索提供者继续可用。
 
 这项服务的运行成本是开放项目的真实基础设施负担；不把费用转嫁成首次安装的配置劳动，也不假设公共服务可以无限制免费开放。M2 发布前须拿出可持续的运营和降级方案。
 
 ### 4.3 搜索评价
 
-建立含中文、英文、时效性、歧义、站点限定、相互冲突来源、抓取失败的标注集。测量结果相关性、覆盖、重复、来源多样性、首次可用结果时间、总结可追溯性和用户完成任务时间。结果展示与总结分别测，不能用 LLM 自评替代人工标注。
+建立含中文、英文、时效性、歧义、站点限定、相互冲突来源、抓取失败的标注集。测量结果相关性、覆盖、重复、来源多样性、首次可用结果时间、总结可追溯性和用户完成任务时间。记录提供者原顺序、Grid 重排、查询改写和广告位审计；A/B 用同任务比较干扰、阅读成功及 Fetch 失败恢复。结果展示与总结分别测，不能用 LLM 自评替代人工标注。
 
 ---
 
@@ -173,6 +181,8 @@ OpenAI 官方文档描述 Responses 的工具调用；Claude 使用 Messages 的
 ---
 
 ## 6. Agent：浏览器执行权永远不交给模型
+
+本节描述目标安全约束。M0 的扩展或 CDP/Playwright 实验壳只在隔离资料档和受限测试站点验证体验，不宣称已有 Browser Service 级权限闸门；发布级能力仍需按选定架构实现并测试。
 
 ### 6.1 最小工具面
 
@@ -226,7 +236,7 @@ Grid 的任务和标签状态由浏览器本地维护，通过显式 taskId、ta
 - 处理 Fetch 覆盖缺口：浏览器原页可阅读，不能冒充已保存的快照；
 - 设计快照保留、删除和用户隐私规则。
 
-这些修复是格式正确性工作，不应阻塞 M1/M2 的正常浏览和搜索主线。
+这些修复是格式正确性工作，不应阻塞 M1/M2 的正常浏览和搜索主线。.lattice 解决可核验引用，与核心的低干扰搜索/阅读和可控 Agent 相邻；可在核心体验稳定或首版发布后独立推进。
 
 ---
 
@@ -250,7 +260,7 @@ Grid 的任务和标签状态由浏览器本地维护，通过显式 taskId、ta
 
 ### 8.5 媒体与日用网页能力
 
-先保障网站自身的播放器在 Grid 中正常工作，再考虑 Grid 自有播放器。媒体层通过 Chromium 的 `<video>`/`<audio>`、MSE、EME/CDM、编解码和系统设备实现；Video.js 10 仅作为将来自有媒体查看器的 UI 候选。当前 WebUI 选 Lit，若确有自有播放器需求，先评估 `@videojs/html`；`@videojs/react` 只用于独立 React 界面。浏览器不替换第三方网站的播放器。[Chromium 媒体目录](https://chromium.googlesource.com/chromium/src/+/HEAD/media/README.md)、[Video.js HTML 安装](https://videojs.org/docs/guides/installation/html)、[Video.js React 安装](https://videojs.org/docs/guides/installation/react)
+先保障网站自身的播放器在 Grid 中正常工作，再考虑 Grid 自有播放器。媒体层通过 Chromium 的 `<video>`/`<audio>`、MSE、EME/CDM、编解码和系统设备实现；Video.js 10 仅作为将来自有媒体查看器的 UI 候选。若后来采用 Lit WebUI 且确有自有播放器需求，先评估 `@videojs/html`；`@videojs/react` 只用于独立 React 界面。浏览器不替换第三方网站的播放器。[Chromium 媒体目录](https://chromium.googlesource.com/chromium/src/+/HEAD/media/README.md)、[Video.js HTML 安装](https://videojs.org/docs/guides/installation/html)、[Video.js React 安装](https://videojs.org/docs/guides/installation/react)
 
 以实际分发包建立媒体格式/站点矩阵，逐项测字幕、全屏、画中画、后台播放、摄像头/麦克风/共享屏幕、PDF/打印、Passkey、文件往返及离线网页。H.264/AAC、受保护流媒体和 CDM 的打包与授权单独核对；不能把 Chromium 源码可编译视为 Grid 可分发。格式、站点和平台缺口在首个公开版本中可查。[Chromium 编解码说明](https://www.chromium.org/audio-video/)
 
@@ -258,7 +268,21 @@ Grid 的任务和标签状态由浏览器本地维护，通过显式 taskId、ta
 
 ## 9. 代码组织与现有资产迁移
 
-建议仓库结构（可用独立仓库或 monorepo；先按组件边界组织）：
+M0 只保留足以跑三项代表任务的技术栈；以下状态指**原型排期**，不等于删除历史源码：
+
+| 资产/技术 | M0 处置 | 理由与恢复条件 |
+|---|---|---|
+| 现有 Chromium + 扩展或受限 CDP/Playwright | 保留，二选一做纵向原型 | 复用浏览能力，先验证 A/B 搜索阅读和 Agent 控制；不把实验权限作为发布架构 |
+| TypeScript 搜索交互样机与本地任务夹具 | 保留并接入真实结果 | 已有界面和任务基础；替换录制数据时保留失败状态 |
+| Swift/WebKit 对照样机 | 保留为 G1 对照，冻结产品功能扩展 | 继续测内核差异；不同时建设第二套主产品 |
+| 旧 Node Search/Fetch 适配 PoC | 只迁移最小检索契约与实测夹具 | 先解决展示条款、第二来源和 Fetch 失败；不整体移植 CLI |
+| Rust Broker、Chromium C++/Mojo、Protobuf | 冻结实施，保留候选设计 | 仅在独立浏览器/进程边界 ADR 后启用 |
+| 旧 Python/Node .lattice 与四端验证器 | 冻结迁移，独立保留 | 核心任务通过后再修 SPEC 与互操作；不阻塞 M1/M2 |
+| 公共 relay | 冻结部署决定，先完成隐私和自托管方案 | 不以项目服务器成为未说明的查询入口 |
+
+下列目录是**独立浏览器路线获批后的候选**，不是 M0 必须建立的结构。
+
+独立浏览器若获批，建议按组件边界组织：
 
     browser/             Chromium pin、薄补丁、Browser Service、Mojo
     ui/                  WebUI：新标签、搜索结果、按需任务/比较
@@ -269,7 +293,7 @@ Grid 的任务和标签状态由浏览器本地维护，通过显式 taskId、ta
     tests/               用户任务、兼容、性能与安全测试
     docs/                架构、ADR、构建、贡献、安全政策
 
-旧研究工作区中的 `.lattice` CLI 与验证器暂不纳入首批公开仓库；先核对许可、测试夹具、签名范围和演示材料，再为 SearchProvider、ModelProvider、EvidenceVerifier 加合约测试并按模块迁移。旧 AppKit 阅读原型只保留为原生阅读实验；旧 `gateway.mjs` 作为状态机参考，真实页面权限闸门重新在 Browser Service 落地。每次迁移要能指出用户体验收益和回归测试。
+旧研究工作区中的 `.lattice` CLI 与验证器暂不纳入原型；核心体验稳定后再核对许可、测试夹具、签名范围和演示材料，并按需迁移。旧 AppKit 阅读原型只保留为阅读实验；旧 `gateway.mjs` 作为状态机参考。若选择独立浏览器，真实页面权限闸门再在 Browser Service 落地。每次迁移要能指出用户体验收益和回归测试。
 
 上游 Chromium 不直接复制进普通 Git 历史；固定版本、记录补丁及构建参数，自动生成补丁差异报告。尽量把业务逻辑放在独立组件，减少每次上游更新冲突。
 
@@ -281,17 +305,17 @@ Grid 的任务和标签状态由浏览器本地维护，通过显式 taskId、ta
 
 | 阶段 | 依赖 | 交付 | 不能宣称完成的情况 |
 |---|---|---|---|
-| T0：任务基线与原型 | 无 | 真实任务集、现有浏览器基线、输入/结果/原页及 Agent 操作预览/接管交互原型、G1 内核和媒体/日用网页能力测试 | 只有静态图、内部自评或单一 PoC；Agent 原型无法让人看清目标或及时接管；媒体只测空白页能力探测 |
-| T1：浏览器骨架 | T0 | Chromium 构建与安装、地址栏、标签、导航、历史、登录、下载、权限、崩溃恢复、数据导入、自动更新通路；媒体/会议/PDF/Passkey/离线网页兼容矩阵；同会话只读页面快照、标签绑定及接管/动作闸门基础 | 仍需回到原浏览器完成常用操作；目标媒体和会议任务失败；Agent 基础能力必须借助第二套登录态 |
+| T0：任务基线与原型 | 无 | 三项代表任务、惯用浏览器基线、现有 Chromium 上的搜索 → A/B 阅读 → 原页 → Agent 预览/接管纵向原型；Fetch 缺口实测及 G1 能力清单 | 只有静态图、内部自评或单一 PoC；无法比较 A/B、来源偏差和接管效果 |
+| T1：浏览器路径决策与基础 | T0 | 根据任务证据选继续集成/独立壳/fork；fork 另作 ADR；对应安装包的浏览、媒体、会议、PDF/Passkey/离线能力与安全更新矩阵 | 把原型当正式浏览器；fork 无团队与自动更新演练；常用任务仍须回惯用浏览器 |
 | T2：搜索闭环 | T1 | Search adapters、短总结与结果列表、默认免 key 体验、原页返回、失败回退 | 结果被总结阻塞或用户无法打开来源 |
 | T3：意图连续性 | T2 | 跨页面上下文、比较、恢复任务、无需手动建空间 | 多标签任务仍需重复搜索和复制粘贴 |
 | T4：AI 兼容与 Agent | T1–T3 | Model capability matrix、真实页面动作、可信预览、原页实时状态、暂停/接管、少配置的本机 MCP 接入、恶意页面测试 | 只在 mock executor 或单一模型上通过；预览和动作脱节或外部 Agent 须复制登录态 |
-| T5：按需证据 | T2–T4 | 就地核对、修正后的 .lattice、四端互操作 | 把锚点命中当成语义正确 |
-| T6：开放发布 | T1–T5 | 三平台发布矩阵、构建说明、许可、贡献、安全响应、可用安装包、30 秒浏览体验与可选的受控 Agent 演示 | 外部人无法安装、复现或报告问题 |
+| T5：按需证据（可后移） | 核心体验稳定 | 就地核对、修正后的 .lattice、四端互操作；不作为首版发布依赖 | 把锚点命中当成语义正确 |
+| T6：开放发布 | T1–T4；T5 可并行或后置 | 选定路线的安装/集成包、构建说明、许可、贡献、安全响应、30 秒搜索与受控 Agent 演示；独立浏览器才要求相应平台发布矩阵 | 外部人无法安装、复现或报告问题 |
 
 ### 10.1 最小可公开体验
 
-“开源浏览器的第一个可体验版本”至少应做到：无需申请 key 即可安装、正常浏览真实网站、搜索显示结果和短总结、打开原页并返回、AI 失败时浏览不受影响、反馈入口明确。T0 同时提供可交互的 Agent 控制预览样机，测试用户能否理解和接管；该样机不代表真实页面执行已完成。真实 Agent 在 T4 通过浏览器权限、安全和可靠性门槛后开放。
+“Grid 的第一个可体验版本”至少应做到：可独立安装扩展/实验包、查询显示来源与短总结、A/B 阅读均可试用、真实原页可打开并返回、Agent 的测试任务可预览和接管、失败时浏览不受影响、反馈入口明确。T0 原型不代表可日用浏览器；真实 Agent 的广泛网站支持在 T4 通过权限、安全和可靠性门槛后开放。
 
 ### 10.2 工程门槛
 
@@ -309,13 +333,13 @@ Grid 的任务和标签状态由浏览器本地维护，通过显式 taskId、ta
 
 技术第一还要可体验、可审查、可持续维护：
 
-1. 决定与 Chromium、第三方依赖相容的开放许可证，公开 SBOM、构建说明、二进制签名和校验方法。
-2. 建立 nightly、beta、stable 通道；上游更新合并、跨平台构建、浏览器回归与安全测试自动化。公开当前跟踪的 Chromium 版本与安全更新延迟。
+1. 决定与 Chromium、第三方依赖相容的开放许可证，公开 SBOM、构建说明；独立浏览器发布时补充二进制签名和校验方法。
+2. 若 fork 获批，建立 nightly、beta、stable 通道；上游更新合并、跨平台构建、浏览器回归与安全测试自动化。公开跟踪的 Chromium 版本与安全更新延迟。
 3. 保持源码与可安装版本一致，避免“代码开源但用户运行的是另一套不可复现构建”。
 4. 发布真实任务演示：从输入问题到短总结、结果、原页、按需 AI 帮忙；同时公开失败场景。
 5. 用用户任务完成率、留存、兼容、崩溃、安全更新、外部贡献者与集成质量衡量进展。仓库星数只是辅助。
 
-已有 BrowserOS 是带 AI Agent 的开源 Chromium fork，因此“内置 AI”本身并不构成领先。Grid 的可验证差异应是：更少配置、更清楚的搜索结果、更完整的日常浏览、更多模型与 Agent 可接入、始终可控的真实页面操作。[BrowserOS 项目说明](https://github.com/browseros-ai/BrowserOS/blob/main/README.BrowserOS.md)
+已有 BrowserOS 是带 AI Agent 的开源 Chromium fork，因此“内置 AI”本身并不构成领先。Grid 的待验证差异是：由用户查询驱动的低干扰内容入口、可追溯且可替换的检索、A/B 阅读路线，以及始终可控的真实页面操作。[BrowserOS 项目说明](https://github.com/browseros-ai/BrowserOS/blob/main/README.BrowserOS.md)
 
 ---
 
@@ -323,7 +347,10 @@ Grid 的任务和标签状态由浏览器本地维护，通过显式 taskId、ta
 
 | 风险 | 决策门或处理 |
 |---|---|
-| Chromium fork 更新跟不上 | G1：先完成自动跟踪、构建和安全回归；做不到不能公开作为日常浏览器 |
+| **最高优先级：Chromium fork 跟不上安全更新** | fork 只在独立 ADR 确认足够维护团队、自动合并/构建、跨平台回归和安全更新演练后启动；做不到不 fork，也不以实验壳冒充日用浏览器 |
+| Fetch 覆盖缺口使 B 阅读层不可用 | 旧样本仅作风险信号；按站点重测，验收第二获取路径和原页回退后再决定 B |
+| Search/Fetch 内容使用权待核对 | 核对结果页展示、缓存、正文再分发和摘要引用；无结论不承诺公开版能力 |
+| relay 处理全部默认查询 | 明示查询/IP/日志、保留期限与下游去向，验证可完全自托管和 BYOK |
 | 界面因 AI 变复杂 | 每个新增 UI 在真实任务测试中证明必要；默认界面保持地址栏、结果、网页 |
 | AI 适配名义兼容、能力实际缺失 | 能力矩阵 + 供应商原生接口合约测试 + 明确降级 |
 | 默认服务被滥用或停服 | 免 key 服务有滥用控制、隐私说明与自托管/BYOK 回退；浏览本体不依赖它 |
@@ -341,25 +368,23 @@ Grid 的任务和标签状态由浏览器本地维护，通过显式 taskId、ta
 
 ## 13. 第一批具体工作包
 
-1. **任务基线**：把 PLAN.md M0 的 20–30 个任务做成可复跑脚本与用户测试表；记录 Agent 连接、预览理解和接管指标。
-2. **Chromium 构建实验**：固定 stable 版本，macOS 首建，CI 建 Windows/Linux；测原生浏览器基础流程、媒体/会议/PDF/Passkey/离线网页矩阵与上游更新速度，记录编解码和 CDM 的分发边界。
-3. **WebUI 垂直切片**：一个地址栏、一个搜索结果页、一个真实网页；结果先行、短总结异步、可返回原查询。
-4. **协议与适配**：冻结 SearchHit、IntentContext、PageHandle、ModelCapabilities 等 schema；为 DeepSeek 和第二检索源做合约测试；修正旧模型名。
-5. **免 key 体验**：实现开源 relay 的最小可用版本、隐私文案、自托管与 BYOK 回退，验证外部用户可安装试用。
-6. **Agent 控制预览原型**：在任务夹具中走通“选定当前页 → 目标高亮和可信预览 → 执行状态 → 暂停/接管”，先测用户能否理解预览、找到控制入口；以克制的高密度信息层级、明确焦点和可减少动效检验视觉方向。
-7. **真实页面动作实验**：同会话只读 snapshot → 生成绑定页面版本的预览 → 安全点击/输入 → 人类接管 → 失败对账；先覆盖两个动态、一个登录网站，并测过期预览被拒绝。
-8. **外部 Agent 接入实验**：本机 stdio 桥接与 Browser Service 共用授权/动作闸门；准备一份可复制配置，在不导出 Cookie 的前提下测首次连接、断开、撤权和接管。
-9. **证据修复**：修正 SPEC 签名范围及四端一致性，把证据核对放进按需入口。
+1. **代表任务与基线**：先用 PLAN.md 的三项任务与惯用浏览器对照，再修订 20–30 项分解任务；记录来源多样性、干扰、Agent 接管与失败恢复。
+2. **Search/Fetch 权利与可靠性核对**：核对展示/缓存/正文/摘要边界；重测 Fetch 失败类型，接入第二检索或获取路径，并验证原页回退。
+3. **低成本纵向原型**：在现有 Chromium 中二选一使用扩展或受限 CDP/Playwright，串起查询结果、A/B 阅读、原页、Agent 预览/暂停/接管；测试资料档隔离。
+4. **最小适配契约**：保留 SearchHit、PageHandle 与动作状态等必要字段；在真实任务中验证后才冻结跨语言 schema，不提前建设 Rust/C++/Protobuf 全栈。
+5. **隐私与首次体验**：写出 relay 的字段、保留期限、删除与完全自托管方案，确定合法免 key 路径；未完成前不部署公共 relay。
+6. **G1 决策**：比较继续集成、独立壳与 fork 的用户价值、媒体/日用能力及维护成本；需要 fork 时提交独立 ADR 和安全更新演练。
+7. **证据格式（后置）**：核心体验稳定后修正 .lattice SPEC 签名范围及四端一致性，作为按需核验能力独立验收。
 
-这些工作包形成一条纵向闭环：真实用户任务 → 可用浏览器 → 搜索结果 → 真实网页 → 可预览和接管的可选 AI 动作 → 可选证据。任何工作包都不能只以“代码已写”验收。
+这些工作包先验证“自主查询 → A/B 阅读 → 真实原页 → 可预览、可接管的 Agent 动作”；.lattice 后置。任何工作包都不能只以“代码已写”验收。
 
 ---
 
 ## 14. 一手资料与核对日期
 
-截至 2026-10-30：
+新增核对至 2026-11-02：
 - [Chromium 架构](https://www.chromium.org/developers/design-documents/multi-process-architecture/)、[跨平台构建](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/get_the_code.md)、[WebUI 与 Mojo](https://chromium.googlesource.com/chromium/src/+/main/docs/webui/webui_explainer.md)、[安全更新](https://chromium.googlesource.com/chromium/src/+/main/docs/security/updates.md)。
-- [DeepSeek Search/Fetch](https://api-docs.deepseek.com/guides/search/)、[DeepSeek Responses 兼容范围](https://api-docs.deepseek.com/guides/responses_api/)。
+- [DeepSeek Search/Fetch](https://api-docs.deepseek.com/guides/search/)、[开放平台条款](https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html)、[DeepSeek Responses 兼容范围](https://api-docs.deepseek.com/guides/responses_api/)；缓存与正文再分发边界仍待专项确认。
 - [OpenAI Docs：工具调用](https://developers.openai.com/api/docs/guides/function-calling)、[Claude 工具调用](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)、[Gemini Interactions](https://ai.google.dev/gemini-api/docs/interactions-overview)、[llama.cpp server](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)。
 - [MCP 传输规范](https://modelcontextprotocol.io/specification/draft/basic/transports)、[WebDriver BiDi 草案](https://www.w3.org/TR/webdriver-bidi/)、[WebMCP 预览](https://developer.chrome.com/docs/modern-web-guidance/guides/webmcp/webmcp)、[Chrome Agent 安全](https://developer.chrome.com/docs/agents/security)。
 - [BrowserOS 开源项目](https://github.com/browseros-ai/BrowserOS/blob/main/README.BrowserOS.md)。

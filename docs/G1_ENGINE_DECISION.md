@@ -1,23 +1,24 @@
 # G1｜浏览器内核决策记录（进行中）
 
-> 2026-10-30。依据主计划 M0/M1 与技术方案 §2.2。默认工程路线为 Chromium 薄补丁 fork；必须经过同任务对照和维护能力验证后才算选定。
+> 2026-11-02。依据主计划 M0/M1 与技术方案 §2.2。先用现有 Chromium 验证核心动线；独立 fork 须另作 ADR 并证明维护能力。
 
 ## 选择要回答的问题
 
-Grid 先要成为完整、可靠、可更新的浏览器。内核选择必须支持：真实网页与登录态、主流站点、媒体播放与实时通信、PDF/打印、下载上传、Passkey、扩展生态、浏览器主进程动作闸门、同会话的 Agent 预览与接管、安全更新、跨平台构建。搜索页和 AI Broker 不能掩盖这些基础能力的不足。横向能力与媒体决策见 [浏览器基建矩阵](./BROWSER_FOUNDATIONS.md)。
+Grid 先验证自主查询、A/B 阅读和可控 Agent 的用户价值。若选择独立浏览器，内核还须支持真实网页与登录态、主流站点、媒体播放与实时通信、PDF/打印、下载上传、Passkey、扩展生态、浏览器主进程动作闸门、安全更新和跨平台构建。横向能力见 [浏览器基建矩阵](./BROWSER_FOUNDATIONS.md)。
 
-## 两条实验路径
+## 原型与后续候选
 
 | 路径 | 当前工作 | 要测的限制 |
 |---|---|---|
-| Chromium 原生 fork（默认候选） | 固定 stable 版本、完成 macOS 构建；薄补丁实现一个 WebUI 搜索页和 Browser Service 入口 | 上游更新成本、应用体积、冷启动、编译维护、扩展与安全回归 |
+| 现有 Chromium（M0 首选） | 扩展或受限 CDP/Playwright 实验壳；跑搜索 → A/B 阅读 → 原页 → Agent 接管 | 原型权限与部署方式不能直接作为日用产品发布 |
+| Chromium 原生 fork（待 ADR） | 既有固定 stable 构建脚本保留为维护可行性实验 | 上游安全更新、团队规模、自动合并与跨平台回归成本 |
 | WebKit 原生壳（对照候选） | 本仓库 `GridBrowserProbe`：地址栏、标签、真实网页、外部搜索回退 | 网站兼容、扩展、跨平台一致性、页面动作、权限与登录态 |
 
 WebKit 对照样机的搜索会打开 Bing；它没有 Grid 搜索结果页、AI 总结、Agent、同步、资料档管理或安全更新通道。它只提供可运行的 G1 对照负载，不能据此宣称 M1/M2 完成。
 
 ## 同负载验收矩阵
 
-对两条路径执行 [T0 任务集](./T0_TASKS.md)，记录原始数据后再作决策。
+先用现有 Chromium 执行三项代表任务和 [T0 任务集](./T0_TASKS.md)，比较 A/B 与惯用浏览器；独立浏览器候选随后按同负载验证。
 
 | 维度 | 观测方法 | 硬性要求 |
 |---|---|---|
@@ -45,6 +46,6 @@ WebKit 对照样机的搜索会打开 Bing；它没有 Grid 搜索结果页、AI
 ## 下一步顺序
 
 1. 让 3–5 名真实用户先跑任务集，修订模糊任务与记录流程；不提前设性能胜率。
-2. 按 [Chromium 官方 macOS 构建说明](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/docs/mac_build_instructions.md)取得 `depot_tools`、固定上游版本并构建。隔离构建目录，记录磁盘、耗时、补丁和失败。
-3. 在 Chromium 里做同一输入/真实页面/结果页垂直切片；以官方 [WebUI/Mojo 路线](https://chromium.googlesource.com/chromium/src/+/main/docs/webui/webui_explainer.md)连接 Browser Service。
-4. 执行同负载测试与一次上游安全更新演练，然后写出正式 ADR。跨平台在 macOS 端到端可跑时就启动 Windows/Linux CI，不等发布前补。
+2. 在现有 Chromium 中做查询、A/B 阅读、原页、Agent 预览/接管纵向切片；测试资料档与权限隔离。
+3. 重测 Fetch 失败、第二获取路径和原页回退，记录来源偏差与任务完成情况。
+4. 依据同负载结果比较继续集成、独立壳与 fork。若需 fork，再按 [Chromium 官方构建说明](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/docs/mac_build_instructions.md)演练构建、上游安全更新及跨平台 CI，完成 ADR。

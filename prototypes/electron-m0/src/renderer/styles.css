@@ -1,6 +1,6 @@
 :root { color-scheme: dark; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; background: #0b0f17; color: #ecf1f7; }
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 720px; }
+body { margin: 0; min-width: 720px; height: 100vh; overflow: hidden; }
 button, input { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 2px solid #87e1c2; outline-offset: 2px; }
@@ -11,13 +11,22 @@ button:focus-visible, input:focus-visible { outline: 2px solid #87e1c2; outline-
 .nav { width: 38px; font-size: 20px; line-height: 1; }
 .nav:disabled { opacity: .38; cursor: default; }
 .home:disabled { opacity: .38; cursor: default; }
+.agent-panel { height: 230px; overflow-y: auto; padding: 16px 26px; border-bottom: 1px solid #365064; background: #111d29; }
+.agent-heading { display: flex; align-items: center; gap: 12px; }
+.agent-heading strong { flex: 1; }
+.agent-panel p { margin: 8px 0; font-size: 13px; overflow-wrap: anywhere; }
+.agent-hint { color: #91a9b9; }
+.agent-panel button { border: 1px solid #315365; background: #1b2b39; border-radius: 7px; color: #dff3ed; padding: 7px 10px; }
+.agent-connection { display: flex; align-items: center; gap: 12px; padding: 7px 0; }
+.agent-connection span { flex: 1; overflow-wrap: anywhere; }
 .home { padding: 0 15px; }
 .omnibox { min-width: 180px; flex: 1; height: 42px; display: flex; align-items: center; padding: 3px; background: #080e16; border: 1px solid #365064; border-radius: 11px; }
 .omnibox:focus-within { border-color: #7ce4bf; }
 .omnibox input { flex: 1; min-width: 0; border: 0; outline: 0; color: #f2f6fa; background: transparent; padding: 0 13px; }
 .omnibox input::placeholder { color: #8599ab; }
 .omnibox button { height: 34px; border: 0; border-radius: 8px; padding: 0 13px; color: #09231c; background: #7ce4bf; font-weight: 700; }
-.surface { min-height: calc(100vh - 78px); padding: 55px clamp(28px, 7vw, 110px) 100px; background: radial-gradient(ellipse at 78% -10%, #12313a 0, transparent 42%), #0b0f17; }
+.surface { height: calc(100vh - 78px); overflow-y: auto; padding: 55px clamp(28px, 7vw, 110px) 100px; background: radial-gradient(ellipse at 78% -10%, #12313a 0, transparent 42%), #0b0f17; }
+.agent-open .surface { height: calc(100vh - 308px); }
 .welcome { max-width: 760px; margin: 9vh auto 0; }
 .eyebrow { font-size: 11px; letter-spacing: .21em; color: #7ce4bf; font-weight: 800; }
 h1 { font-size: clamp(32px, 4.3vw, 56px); line-height: 1.1; letter-spacing: -.045em; margin: 18px 0; }

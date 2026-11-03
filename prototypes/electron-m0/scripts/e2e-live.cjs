@@ -11,6 +11,7 @@ if (!(process.env.DEEPSEEK_API_KEY || process.env.DeepSeek_ApiKeyN)) {
 } else {
   app.setPath('userData', mkdtempSync(path.join(tmpdir(), 'grid-live-e2e-')));
   require('../dist/main.js');
+  app.once('will-quit', () => { if (process.exitCode) app.exit(Number(process.exitCode)); });
   const report = [];
   const keepOpen = process.argv.includes('--keep-open');
   let finished = false;

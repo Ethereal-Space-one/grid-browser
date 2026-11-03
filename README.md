@@ -10,7 +10,7 @@ Grid 是从用户意图出发的开源浏览器：让人更快找到、理解并
 - `Sources/GridBrowserProbe/main.swift`：已冻结的 Swift 6/AppKit/WebKit 对照样机，包含地址栏、前进后退、重载、标签和真实网页。
 - `fixtures/web/`：本地导航、动态表单、iframe、下载及 VP9/Opus 音视频/字幕夹具。
 - `prototypes/search-lab/`：可交互的结果优先搜索页，用录制数据验证信息层级与失败状态；不执行实时检索。
-- `prototypes/electron-m0/`：可运行的 Electron 首个切片，支持网址直达、DeepSeek Search 结果、Fetch 正文与真实原页；运行方法和未完成项见[原型说明](./prototypes/electron-m0/README.md)。
+- `prototypes/electron-m0/`：可运行的 Electron 首个切片，支持网址直达、DeepSeek Search、Fetch 阅读、真实原页及获授权的本机 MCP 只读接入；运行方法和未完成项见[原型说明](./prototypes/electron-m0/README.md)。
 - `docs/T0_TASKS.md`：30 个可复跑用户任务（含 Agent 预览/接管和媒体/会议）；`docs/t0-results.template.csv` 是记录模板，参与者原始记录不进入 Git。
 - `docs/BROWSER_FOUNDATIONS.md`：媒体、会议与日用网页能力矩阵；说明 Video.js 在 Grid 中的适用边界。
 - `docs/media-results.template.csv`：媒体格式、实际播放与系统行为的记录模板；原始记录不进入 Git。
@@ -41,4 +41,4 @@ python3 scripts/serve-fixtures.py
 
 ## 当前限制与下一步
 
-Swift 样机搜索使用外部 Bing 页面；录制数据搜索原型尚未接入样机地址栏。Electron 首个切片已用真实 key 跑通一次搜索、Fetch 阅读、原页打开及返回结果的流程，见[实测记录](./docs/SMOKE_ELECTRON_2026-11-02.md)；这不替代 T2 搜索闭环。本机 stdio/MCP 桥接与 Agent 控制预览仍未实现，A01–A04 的真实执行记为“未实现”；V01–V02 的媒体与会议任务尚未实测。Chromium G1 完整构建、证据和安全更新通道尚未完成。下一步在 Electron 中加入本机桥接、页面只读能力和可接管动作，并建立开发者任务基线；正式安全模型另行验收。
+Swift 样机搜索使用外部 Bing 页面；录制数据搜索原型尚未接入样机地址栏。Electron 首个切片已用真实 key 跑通一次搜索、Fetch 阅读、原页打开及返回结果，见[搜索实测](./docs/SMOKE_ELECTRON_2026-11-02.md)；这不替代 T2 搜索闭环。本机 MCP 只读桥接、用户授权/撤销和 JSON 读取回执已通过[官方 SDK 客户端实测](./docs/SMOKE_MCP_2026-11-02.md)，具体 AI 编程工具的首次接入体验还待验证。Agent 写动作、预览和接管未实现；V01–V02 的媒体与会议任务尚未实测。完整 Chromium 构建、证据格式和安全更新通道尚未完成。下一步验证真实宿主接入，再推进可接管动作和开发者任务基线；正式安全模型另行验收。

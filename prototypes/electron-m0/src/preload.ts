@@ -10,6 +10,11 @@ contextBridge.exposeInMainWorld('grid', {
   home: () => ipcRenderer.invoke('grid:home'),
   results: () => ipcRenderer.invoke('grid:results'),
   state: () => ipcRenderer.invoke('grid:state'),
+  agentPanel: (open: boolean) => ipcRenderer.invoke('grid:agent-panel', open),
+  agentGrant: (id: string) => ipcRenderer.invoke('grid:agent-grant', id),
+  agentRevoke: (id: string) => ipcRenderer.invoke('grid:agent-revoke', id),
+  agentCopyConfig: () => ipcRenderer.invoke('grid:agent-copy-config'),
+  agentExport: () => ipcRenderer.invoke('grid:agent-export'),
   onState: (callback: (state: unknown) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, state: unknown) => callback(state);
     ipcRenderer.on('grid:state', listener);

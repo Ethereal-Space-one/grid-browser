@@ -20,8 +20,15 @@
       </form>
       <button id="return-results" class="home" type="button" disabled>结果</button>
       <button id="home" class="home" type="button">首页</button>
+      <button id="agent-toggle" class="home" type="button" aria-expanded="false" aria-controls="agent-panel">Agent</button>
     </header>
 
+    <section id="agent-panel" class="agent-panel hidden" aria-label="本机 Agent 只读授权">
+      <div class="agent-heading"><strong>本机 Agent · 只读</strong><button id="agent-config" type="button">复制 MCP 配置</button><button id="agent-export" type="button">导出读取回执</button></div>
+      <p id="agent-scope">请先打开网页。</p>
+      <p class="agent-hint">客户端名称为自行声明。页面文字会返回给该客户端。只授权当前文档，最长 10 分钟；导航或撤销后失效。回执不保存正文。</p>
+      <div id="agent-connections" class="agent-connections" aria-live="polite"></div>
+    </section>
     <main id="surface" class="surface">
       <section id="welcome" class="welcome">
         <div class="eyebrow">M0 · INTENT FIRST</div>

@@ -7,13 +7,19 @@
   "scripts": {
     "build": "tsc && node scripts/copy-assets.mjs",
     "start": "npm run build && electron .",
-    "test": "npm run build && node --test dist/intent.test.js dist/search.test.js",
+    "test": "npm run build && node --test dist/intent.test.js dist/search.test.js dist/bridge.test.js",
     "test:e2e:live": "npm run build && electron scripts/e2e-live.cjs",
-    "test:e2e:live:inspect": "npm run build && electron scripts/e2e-live.cjs --keep-open"
+    "test:e2e:live:inspect": "npm run build && electron scripts/e2e-live.cjs --keep-open",
+    "test:e2e:mcp": "npm run build && electron scripts/e2e-mcp.cjs"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
     "@types/node": "^24.0.0",
     "electron": "45.2.1",
     "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "zod": "4.6.7"
   }
 }

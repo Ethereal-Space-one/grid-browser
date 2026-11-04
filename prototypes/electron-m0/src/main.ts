@@ -4,11 +4,13 @@ import path from 'node:path';
 import { checkedUrl, classifyInput } from './intent';
 import { normalizeSearchResults, type SearchHit } from './search';
 import { LocalBridge, type PageIdentity } from './local-bridge';
+import { checkedScene, sceneSearch, extractionBody, type Scene } from './scenes';
+import { FormAction } from './form-action';
 import { semanticSnapshot, type AXNode } from './semantic-snapshot';
 
-type SearchResponse = { results: SearchHit[]; query: string };
+type SearchResponse = { results: SearchHit[]; query: string; scene: Scene; actualQuery: string; contextual: boolean };
 type Reading = { title: string; url: string; content: string };
-type State = { mode: 'home' | 'results' | 'page' | 'reading'; value: string; canGoBack: boolean; canGoForward: boolean; hasResults: boolean; keyReady: boolean; agentPanelOpen: boolean; agent?: ReturnType<LocalBridge['state']> };
+type State = { scene: Scene; mode: 'home' | 'results' | 'page' | 'reading'; value: string; canGoBack: boolean; canGoForward: boolean; hasResults: boolean; keyReady: boolean; agentPanelOpen: boolean; action?: ReturnType<FormAction['state']>; agent?: ReturnType<LocalBridge['state']> };
 
 const TOOLBAR_HEIGHT = 78;
 const partition = 'persist:grid-m0';
@@ -19,10 +21,13 @@ let mode: State['mode'] = 'home';
 let value = '';
 let hasResults = false;
 let lastQuery = '';
+let selectedScene: Scene = 'professional';
+let currentReading: Reading | undefined;
 const configuredKey = process.env.DEEPSEEK_API_KEY || process.env.DeepSeek_ApiKeyN;
 let bridge: LocalBridge | undefined;
 let documentEpoch = 0;
 let agentPanelOpen = false;
+const formAction = new FormAction(currentPage, () => page.webContents, notifyState, id => bridge?.authorized(id) === true);
 
 function currentPage(): PageIdentity | undefined {
   if (mode !== 'page' || !pageAttached || !page || page.webContents.isDestroyed() || page.webContents.isLoadingMainFrame()) return undefined;
@@ -53,12 +58,14 @@ async function capturePage(expected: PageIdentity) {
 function state(): State {
   return {
     mode,
+    scene: selectedScene,
     value,
     canGoBack: (mode === 'page' && (page?.webContents.navigationHistory.canGoBack() || hasResults)) ?? false,
     canGoForward: (mode === 'page' && page?.webContents.navigationHistory.canGoForward()) ?? false,
     hasResults,
     keyReady: Boolean(configuredKey),
     agentPanelOpen,
+    action: formAction.state(),
     agent: bridge?.state()
   };
 }
@@ -73,7 +80,7 @@ function setPageVisible(visible: boolean): void {
     pageAttached = true;
     resizePage();
   } else if (!visible && pageAttached) {
-    bridge?.revoke();
+    formAction.cancel(); bridge?.revoke();
     window.contentView.removeChildView(page);
     pageAttached = false;
   }
@@ -82,7 +89,7 @@ function setPageVisible(visible: boolean): void {
 function resizePage(): void {
   if (!pageAttached) return;
   const [width, height] = window.getContentSize();
-  const top = TOOLBAR_HEIGHT + (agentPanelOpen ? 230 : 0);
+  const top = TOOLBAR_HEIGHT + (agentPanelOpen ? Math.min(350, Math.floor(height * 0.44)) : 0);
   page.setBounds({ x: 0, y: top, width, height: Math.max(0, height - top) });
 }
 
@@ -107,18 +114,19 @@ async function deepSeek<T>(endpoint: 'search' | 'fetch', body: object): Promise<
   return await response.json() as T;
 }
 
-async function search(query: string): Promise<SearchResponse> {
-  if (query.length > 128) throw new Error('查询最多 128 个字符');
+async function search(query: string, scene: Scene, contextual: boolean): Promise<SearchResponse> {
+  const request = sceneSearch(query, scene, contextual);
+  if (Array.from(query).length > 128) throw new Error('查询最多 128 个字符');
   mode = 'results';
   value = query;
   setPageVisible(false);
   notifyState();
-  const payload = await deepSeek<unknown>('search', { query, count: 10, need_content: false });
+  const payload = await deepSeek<unknown>('search', request.body);
   const results = normalizeSearchResults(payload);
   hasResults = true;
   lastQuery = query;
   notifyState();
-  return { results, query };
+  return { results, query, scene, contextual, actualQuery: request.actualQuery };
 }
 
 async function openPage(raw: string): Promise<void> {
@@ -139,7 +147,8 @@ async function readPage(raw: string): Promise<Reading> {
   value = url;
   setPageVisible(false);
   notifyState();
-  return { title: typeof payload.title === 'string' ? payload.title : url, url, content: payload.content };
+  currentReading = { title: typeof payload.title === 'string' ? payload.title : url, url, content: payload.content };
+  return currentReading;
 }
 
 function createWindow(): void {
@@ -175,7 +184,7 @@ function createWindow(): void {
   } });
   page.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   page.webContents.on('did-start-navigation', details => {
-    if (details.isMainFrame) { documentEpoch++; bridge?.revoke(); }
+    if (details.isMainFrame) { documentEpoch++; formAction.cancel(); bridge?.revoke(); }
   });
   page.webContents.on('will-navigate', (event, url) => {
     try { checkedUrl(url); } catch { event.preventDefault(); }
@@ -184,7 +193,7 @@ function createWindow(): void {
   page.webContents.on('did-navigate-in-page', (_event, url) => { value = url; notifyState(); });
   window.on('resize', resizePage);
   window.on('closed', () => {
-    bridge?.revoke();
+    formAction.cancel(); bridge?.revoke();
     if (!page.webContents.isDestroyed()) page.webContents.close();
   });
 }
@@ -193,16 +202,34 @@ app.whenReady().then(async () => {
   createWindow();
 
   ipcMain.handle('grid:state', event => { assertUiSender(event.sender.id); return state(); });
-  ipcMain.handle('grid:submit', async (event, input: string) => {
+  ipcMain.handle('grid:submit', async (event, input: string, options?: { scene?: unknown; contextual?: unknown }) => {
     assertUiSender(event.sender.id);
     if (typeof input !== 'string') throw new Error('输入格式无效');
     const intent = classifyInput(input);
     if (intent.kind === 'url') { await openPage(intent.url); return { kind: 'page' }; }
-    return { kind: 'results', ...(await search(intent.query)) };
+    const scene = options?.scene === undefined ? selectedScene : checkedScene(options.scene);
+    if (options?.contextual !== undefined && typeof options.contextual !== 'boolean') throw new Error('场景优化选项无效');
+    return { kind: 'results', ...(await search(intent.query, scene, options?.contextual !== false)) };
   });
   ipcMain.handle('grid:open', async (event, url: string) => {
     assertUiSender(event.sender.id);
     await openPage(url);
+  });
+  ipcMain.handle('grid:scene', (event, scene: unknown) => { assertUiSender(event.sender.id); selectedScene = checkedScene(scene); notifyState(); });
+  ipcMain.handle('grid:extract', async (event, raw: string, scene: unknown) => {
+    assertUiSender(event.sender.id);
+    const selected = checkedScene(scene);
+    const reading = currentReading;
+    if (mode !== 'reading' || !reading || checkedUrl(raw) !== reading.url) throw new Error('请先打开要提取的正文');
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST', headers: { Authorization: `Bearer ${requireKey()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(extractionBody(selected, reading.content, lastQuery)), signal: AbortSignal.timeout(20000)
+    });
+    if (!response.ok) throw new Error(`场景提取返回 HTTP ${response.status}；可继续阅读原文`);
+    const payload = await response.json() as { choices?: { message?: { content?: unknown } }[] };
+    const text = payload.choices?.[0]?.message?.content;
+    if (typeof text !== 'string' || !text.trim()) throw new Error('没有生成可用重点；请继续阅读原文');
+    return { text: text.slice(0, 8000), scene: selected, truncated: Array.from(reading.content).length > 16000 };
   });
   ipcMain.handle('grid:read', async (event, url: string) => {
     assertUiSender(event.sender.id);
@@ -231,6 +258,11 @@ app.whenReady().then(async () => {
     assertUiSender(event.sender.id);
     if (mode === 'page') page.webContents.reload();
   });
+  ipcMain.handle('grid:action-preview', async (event, value: unknown) => { assertUiSender(event.sender.id); await formAction.preview(value); });
+  ipcMain.handle('grid:action-confirm', async (event, id: unknown) => { assertUiSender(event.sender.id); await formAction.confirm(id); });
+  ipcMain.handle('grid:action-pause', event => { assertUiSender(event.sender.id); formAction.pause(); });
+  ipcMain.handle('grid:action-resume', event => { assertUiSender(event.sender.id); formAction.resume(); });
+  ipcMain.handle('grid:action-cancel', event => { assertUiSender(event.sender.id); formAction.cancel(); });
   ipcMain.handle('grid:agent-panel', (event, open: boolean) => {
     assertUiSender(event.sender.id);
     agentPanelOpen = Boolean(open); resizePage(); notifyState();
@@ -241,18 +273,23 @@ app.whenReady().then(async () => {
   ipcMain.handle('grid:agent-revoke', (event, id: string) => {
     assertUiSender(event.sender.id); bridge?.revoke(id);
   });
-  ipcMain.handle('grid:agent-copy-config', async event => {
+  ipcMain.handle('grid:agent-copy-config', async (event, format: unknown = 'json') => {
     assertUiSender(event.sender.id);
+    if (format !== 'json' && format !== 'codex') throw new Error('不支持的客户端配置格式');
     if (!bridge) throw new Error('MCP bridge is not ready');
     const npmNode = process.env.npm_node_execpath;
     const command = npmNode && path.isAbsolute(npmNode) ? npmNode : 'node';
     const config = { mcpServers: { grid: { command, args: [path.join(__dirname, 'mcp.js'), '--connection-file', bridge.connectionFile] } } };
-    await clipboard.writeText(JSON.stringify(config, null, 2));
+    const server = config.mcpServers.grid;
+    const text = format === 'codex'
+      ? `[mcp_servers.grid]\ncommand = ${JSON.stringify(server.command)}\nargs = ${JSON.stringify(server.args)}\n`
+      : JSON.stringify(config, null, 2);
+    await clipboard.writeText(text);
   });
   ipcMain.handle('grid:agent-export', async event => {
     assertUiSender(event.sender.id);
     const result = await dialog.showSaveDialog(window, { defaultPath: 'grid-read-receipts.json', filters: [{ name: 'JSON', extensions: ['json'] }] });
-    if (result.filePath && bridge) writeFileSync(result.filePath, bridge.exportReceipts(), { mode: 0o600 });
+    if (result.filePath && bridge) writeFileSync(result.filePath, JSON.stringify({ ...JSON.parse(bridge.exportReceipts()), formActions: formAction.exportReceipts() }, null, 2), { mode: 0o600 });
   });
   let knownConnections = 0;
   bridge = new LocalBridge(currentPage, capturePage, () => {
@@ -260,7 +297,15 @@ app.whenReady().then(async () => {
     if (count > knownConnections) { agentPanelOpen = true; resizePage(); }
     knownConnections = count;
     notifyState();
-  }, path.join(app.getPath('userData'), 'mcp-connection.json'));
+  }, path.join(app.getPath('userData'), 'mcp-connection.json'), {
+    propose: async (value, owner) => {
+      const result = await formAction.preview(value, owner);
+      agentPanelOpen = true; resizePage(); notifyState();
+      return result;
+    },
+    status: id => formAction.status(id),
+    cancel: id => formAction.cancelOwner(id)
+  });
   try { await bridge.start(); notifyState(); }
   catch { bridge.close(); bridge = undefined; console.error('Grid MCP bridge could not start'); }
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

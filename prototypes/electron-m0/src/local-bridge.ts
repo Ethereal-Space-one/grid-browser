@@ -10,6 +10,11 @@ type Grant = PageIdentity & { expiresAt: number };
 type Connection = { id: string; name: string; socket: Socket; grant?: Grant };
 export type ReadReceipt = { timestamp: string; connectionId: string; client: string; action: 'page.snapshot'; status: 'succeeded' | 'denied' | 'failed'; documentId?: string; url?: string; characters?: number; sha256?: string };
 
+type ProposalHooks = {
+  propose(value: unknown, owner: { id: string; name: string }): Promise<unknown>;
+  status(id: string): unknown;
+  cancel(id: string): void;
+};
 export class LocalBridge {
   readonly directory = mkdtempSync(path.join(tmpdir(), 'grid-mcp-'));
   readonly connectionFile: string;
@@ -20,7 +25,7 @@ export class LocalBridge {
   private server = net.createServer(socket => this.accept(socket));
   private receipts: ReadReceipt[] = [];
 
-  constructor(private currentPage: () => PageIdentity | undefined, private snapshot: (page: PageIdentity) => Promise<PageSnapshot>, private changed: () => void, connectionFile?: string) {
+  constructor(private currentPage: () => PageIdentity | undefined, private snapshot: (page: PageIdentity) => Promise<PageSnapshot>, private changed: () => void, connectionFile?: string, private proposals?: ProposalHooks) {
     this.connectionFile = connectionFile || path.join(this.directory, 'connection.json');
   }
 
@@ -51,8 +56,13 @@ export class LocalBridge {
     this.changed();
   }
 
+  authorized(id: string): boolean {
+    const c = this.connections.get(id);
+    return Boolean(c && this.valid(c));
+  }
+
   revoke(id?: string): void {
-    for (const c of this.connections.values()) if (!id || c.id === id) c.grant = undefined;
+    for (const c of this.connections.values()) if (!id || c.id === id) { c.grant = undefined; this.proposals?.cancel(c.id); }
     this.changed();
   }
 
@@ -90,7 +100,7 @@ export class LocalBridge {
     socket.on('close', () => {
       clearTimeout(handshakeTimer);
       this.sockets.delete(socket);
-      if (connection) this.connections.delete(connection.id);
+      if (connection) { this.connections.delete(connection.id); this.proposals?.cancel(connection.id); }
       this.changed();
     });
     socket.on('data', chunk => {
@@ -102,7 +112,7 @@ export class LocalBridge {
         if (busy) { socket.destroy(); return; }
         busy = true;
         void (async () => {
-          let request: { id?: unknown; method?: unknown; token?: unknown; name?: unknown } = {};
+          let request: { id?: unknown; method?: unknown; token?: unknown; name?: unknown; value?: unknown } = {};
           try {
             request = JSON.parse(line);
             if (!Number.isSafeInteger(request.id)) throw new Error('Invalid request');
@@ -116,6 +126,14 @@ export class LocalBridge {
               result = { connectionId: connection.id, authorized: false };
             } else if (request.method === 'status') {
               result = { connectionId: connection.id, authorized: this.valid(connection), scope: 'read current document only; approve in Grid' };
+             } else if (request.method === 'form.propose') {
+              if (!this.proposals || !this.valid(connection)) throw new Error('Authorize the current document in Grid before proposing a fill');
+              const grant = connection.grant;
+              result = await this.proposals.propose(request.value, { id: connection.id, name: connection.name });
+              if (socket.destroyed || connection.grant !== grant || !this.valid(connection)) { this.proposals.cancel(connection.id); throw new Error('Authorization changed during proposal'); }
+            } else if (request.method === 'form.status') {
+              if (!this.proposals) throw new Error('Form proposals unavailable');
+              result = this.proposals.status(connection.id);
             } else if (request.method === 'snapshot') {
               const receipt: ReadReceipt = { timestamp: new Date().toISOString(), connectionId: connection.id, client: connection.name, action: 'page.snapshot', status: 'denied' };
               if (!this.valid(connection)) { this.record(receipt); throw new Error('Read not authorized. Approve the current document in Grid.'); }

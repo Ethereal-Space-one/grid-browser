@@ -11,7 +11,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #87e1c2; outline-
 .nav { width: 38px; font-size: 20px; line-height: 1; }
 .nav:disabled { opacity: .38; cursor: default; }
 .home:disabled { opacity: .38; cursor: default; }
-.agent-panel { height: 230px; overflow-y: auto; padding: 16px 26px; border-bottom: 1px solid #365064; background: #111d29; }
+.agent-panel { height: min(350px, 44vh); overflow-y: auto; padding: 16px 26px; border-bottom: 1px solid #365064; background: #111d29; }
 .agent-heading { display: flex; align-items: center; gap: 12px; }
 .agent-heading strong { flex: 1; }
 .agent-panel p { margin: 8px 0; font-size: 13px; overflow-wrap: anywhere; }
@@ -53,3 +53,41 @@ p { line-height: 1.7; color: #b4c3d1; }
 .busy { position: fixed; z-index: 10; bottom: 23px; right: 23px; padding: 10px 15px; border: 1px solid #305166; border-radius: 10px; background: #1b2d38; color: #d6eee7; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media (prefers-reduced-motion: no-preference) { .result, button { transition: border-color .15s, background-color .15s; } .result:hover { border-color: #497f7a; } }
+
+.form-action { margin: 10px 0; border-top: 1px solid #315365; padding-top: 10px; }
+.form-action input { color: #dff3ed; background: #0b0f17; border: 1px solid #315365; padding: 7px; max-width: 180px; }
+
+#action-content { white-space: pre-wrap; color: #b3f0d8; }
+.form-action button:disabled { opacity: .45; cursor: default; }
+.form-action button:focus-visible, .form-action summary:focus-visible { outline: 2px solid #7ce4bf; outline-offset: 3px; }
+
+body { --accent: #8dd9e9; --glow: #173940; }
+body[data-scene="learning"] { --accent: #b4acf5; --glow: #282341; }
+body[data-scene="living"] { --accent: #f1c68d; --glow: #392d20; }
+body[data-scene="entertainment"] { --accent: #f0a3c7; --glow: #3c2036; }
+body[data-scene="inspiration"] { --accent: #b7df94; --glow: #263723; }
+.brand-mark, .eyebrow { color: var(--accent); }
+.surface { background: radial-gradient(ellipse at 78% 0%, var(--glow), transparent 65%), #0b0f17; }
+.welcome { margin-top: 3vh; max-width: 780px; }
+.welcome > p { font-size: 16px; }
+.scene-picker { display: flex; gap: 8px; padding: 0; border: 0; margin: 30px 0 0; }
+.scene-picker legend { font-size: 13px; color: #a3b5c5; margin-bottom: 12px; }
+.scene-picker label { flex: 1; position: relative; cursor: pointer; }
+.scene-picker input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.scene-picker span { display: block; border: 1px solid #344250; border-radius: 10px; padding: 12px 16px; text-align: center; color: #b4c3d1; background: #111a26; }
+.scene-picker input:checked + span { background: var(--accent); border-color: var(--accent); color: #101722; font-weight: 700; }
+.scene-picker input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 4px; }
+.scene-hint { min-height: 28px; margin: 14px 0 16px; color: var(--accent); }
+.home-search { display: flex; gap: 12px; padding: 8px; border: 1px solid var(--accent); border-radius: 14px; background: #0d1520; box-shadow: 0 12px 50px #0003; }
+.home-search input { flex: 1; width: 0; color: #edf3f8; padding: 12px; background: transparent; border: 0; font-size: 18px; }
+.home-search button { background: var(--accent); color: #101722; border: 0; border-radius: 8px; padding: 0 20px; font-weight: 700; }
+.contextual-option { display: block; margin-top: 16px; font-size: 13px; color: #c2d0dc; }
+.contextual-option input { accent-color: var(--accent); }
+.contextual-option span { color: #92a5b6; margin-left: 12px; }
+.scene-extraction { border: 1px solid #344250; border-radius: 12px; padding: 18px; margin: 22px 0; }
+.scene-extraction button { padding: 9px 16px; color: #101722; background: var(--accent); border: 0; border-radius: 8px; }
+.scene-extraction p { font-size: 13px; }
+.scene-extraction pre { margin: 10px 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .scene-picker span, .scene-hint, .home-search, .home-search button, .brand-mark { transition: color .22s ease, background-color .22s ease, border-color .22s ease, box-shadow .22s ease; }
+}

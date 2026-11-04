@@ -11,14 +11,14 @@ async function main(): Promise<void> {
   const bridge = new BridgeClient();
   let connected = false;
   let queue: Promise<unknown> = Promise.resolve();
-  function invoke(method: string) {
+  function invoke(method: string, data: object = {}) {
     const request = queue.catch(() => {}).then(async () => {
       if (!connected) {
         const client = server.server.getClientVersion();
         await bridge.connect(connectionFile!, client?.name || 'MCP client');
         connected = true;
       }
-      return await bridge.call(method);
+      return await bridge.call(method, data);
     });
     queue = request;
     return request.then(result => ({ content: [{ type: 'text' as const, text: JSON.stringify(result) }] }));
@@ -33,6 +33,16 @@ async function main(): Promise<void> {
     inputSchema: z.object({}),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
   }, () => invoke('snapshot'));
+  server.registerTool('grid_form_propose', {
+    description: 'Propose filling the fixed task field on a synthetic localhost /actions.html page. Requires current-document authorization. Does not fill or submit anything; only the user can confirm in Grid. Do not send personal data.',
+    inputSchema: z.object({ value: z.string().trim().min(1).max(128) }).strict(),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
+  }, ({ value }) => invoke('form.propose', { value }));
+  server.registerTool('grid_form_status', {
+    description: 'Check only your own last form proposal state. Returns no field values. No execution or confirmation capability.',
+    inputSchema: z.object({}),
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
+  }, () => invoke('form.status'));
   const transport = new StdioServerTransport();
   server.server.onclose = () => bridge.close();
   await server.connect(transport);

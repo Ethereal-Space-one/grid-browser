@@ -7,7 +7,7 @@
     <title>Grid · M0</title>
     <link rel="stylesheet" href="styles.css">
   </head>
-  <body>
+  <body data-scene="professional">
     <header class="toolbar">
       <div class="brand" aria-label="Grid">GRID<span class="brand-mark">/</span></div>
       <button id="back" class="nav" type="button" aria-label="后退">←</button>
@@ -23,10 +23,17 @@
       <button id="agent-toggle" class="home" type="button" aria-expanded="false" aria-controls="agent-panel">Agent</button>
     </header>
 
-    <section id="agent-panel" class="agent-panel hidden" aria-label="本机 Agent 只读授权">
-      <div class="agent-heading"><strong>本机 Agent · 只读</strong><button id="agent-config" type="button">复制 MCP 配置</button><button id="agent-export" type="button">导出读取回执</button></div>
+    <section id="agent-panel" class="agent-panel hidden" aria-label="本机 Agent 读取授权与填写提案">
+      <div class="agent-heading"><strong>本机 Agent · 读取与填写提案</strong><select id="agent-config-format" aria-label="客户端配置格式"><option value="json">Claude Code / 通用 JSON</option><option value="codex">Codex TOML</option></select><button id="agent-config" type="button">复制 MCP 配置</button><button id="agent-export" type="button">导出读取回执</button></div>
+      <div class="form-action">
+        <details><summary>手动测试填写</summary><label>任务代号 <input id="action-value" maxlength="128" placeholder="只填合成测试内容"></label>
+        <button id="action-preview" type="button">预览填写</button></details>
+        <div id="action-details" class="hidden"><p><strong id="action-title">等待你确认的填写</strong></p><p id="action-client"></p><p id="action-target"></p><p id="action-content"></p><p>仅填写这个字段，不提交表单。确认后无法用暂停撤回。</p></div>
+        <button id="action-confirm" type="button" disabled>确认填写</button><button id="action-pause" type="button" disabled>暂停</button><button id="action-resume" type="button" disabled>恢复</button><button id="action-cancel" type="button">接管 / 取消</button>
+        <p id="action-status" role="status">仅支持本地 /actions.html；不提交表单。暂停作用于待确认步骤，不能撤回已经完成的填写。</p>
+      </div>
       <p id="agent-scope">请先打开网页。</p>
-      <p class="agent-hint">客户端名称为自行声明。页面文字会返回给该客户端。只授权当前文档，最长 10 分钟；导航或撤销后失效。回执不保存正文。</p>
+      <p class="agent-hint">客户端名称为自行声明。页面文字会返回给该客户端。授权后可读取及提出本地测试填写计划，每次填写仍需在 Grid 单独确认。只授权当前文档，最长 10 分钟；导航或撤销后失效。回执不保存正文。</p>
       <div id="agent-connections" class="agent-connections" aria-live="polite"></div>
     </section>
     <main id="surface" class="surface">
@@ -34,6 +41,16 @@
         <div class="eyebrow">M0 · INTENT FIRST</div>
         <h1>从你要做的事开始。</h1>
         <p>输入网址直接打开原页。提出问题时，先看检索结果，再决定阅读或操作。</p>
+        <fieldset class="scene-picker"><legend>这次，你想怎样探索？</legend>
+          <label><input type="radio" name="scene" value="professional" checked><span>专业</span></label>
+          <label><input type="radio" name="scene" value="learning"><span>学习</span></label>
+          <label><input type="radio" name="scene" value="living"><span>生活</span></label>
+          <label><input type="radio" name="scene" value="entertainment"><span>娱乐</span></label>
+          <label><input type="radio" name="scene" value="inspiration"><span>灵感</span></label>
+        </fieldset>
+        <p id="scene-hint" class="scene-hint" role="status">查依据，重事实，核对原始来源。</p>
+        <form id="home-search" class="home-search"><label class="sr-only" for="home-query">搜索问题或网址</label><input id="home-query" placeholder="现在，你想了解什么？" autocomplete="off"><button type="submit">开始探索 ↗</button></form>
+        <label class="contextual-option"><input id="contextual-search" type="checkbox" checked>按场景优化搜索 <span>仅用于这次主动查询，不生成推荐流</span></label>
         <div id="setup" class="setup" role="status"></div>
         <div class="note">这是开发者验证原型。真实页面操作与正式安全边界尚未完成。</div>
       </section>
@@ -42,6 +59,7 @@
         <div class="eyebrow">SEARCH / RESULTS FIRST</div>
         <h1 id="results-title"></h1>
         <p class="subline">结果来自 DeepSeek Search。排序由提供者决定；Grid 当前保持原顺序。尚无模型总结与原文核对。</p>
+        <p id="search-context" class="subline"></p>
         <div id="result-list" class="result-list"></div>
       </section>
 
@@ -53,6 +71,7 @@
         <h1 id="reading-title"></h1>
         <p id="reading-source" class="subline"></p>
         <p class="reading-warning">此内容由 Fetch 获取，可能不完整或过时；需要登录、操作或核实时请返回原页。</p>
+        <section class="scene-extraction"><button id="extract-scene" type="button">按当前场景提取重点</button><p id="extract-notice">点击后将公开网页正文（最多 16000 字符）发送给 DeepSeek 模型，产生额外调用。原文始终保留。</p><p id="extraction-label"></p><pre id="extraction-content" role="status"></pre></section>
         <pre id="reading-content"></pre>
       </section>
 

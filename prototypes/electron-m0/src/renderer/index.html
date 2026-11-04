@@ -38,9 +38,9 @@
     </section>
     <main id="surface" class="surface">
       <section id="welcome" class="welcome">
-        <div class="eyebrow">M0 · INTENT FIRST</div>
-        <h1>从你要做的事开始。</h1>
-        <p>输入网址直接打开原页。提出问题时，先看检索结果，再决定阅读或操作。</p>
+        <div class="eyebrow">GRID · 开发者预览</div>
+        <h1>从一个问题开始。</h1>
+        <p>选择这次的场景，找到资料，再决定下一步。也可以直接打开网址。</p>
         <fieldset class="scene-picker"><legend>这次，你想怎样探索？</legend>
           <label><input type="radio" name="scene" value="professional" checked><span>专业</span></label>
           <label><input type="radio" name="scene" value="learning"><span>学习</span></label>
@@ -52,6 +52,7 @@
         <form id="home-search" class="home-search"><label class="sr-only" for="home-query">搜索问题或网址</label><input id="home-query" placeholder="现在，你想了解什么？" autocomplete="off"><button type="submit">开始探索 ↗</button></form>
         <label class="contextual-option"><input id="contextual-search" type="checkbox" checked>按场景优化搜索 <span>仅用于这次主动查询，不生成推荐流</span></label>
         <div id="setup" class="setup" role="status"></div>
+        <details class="provider-settings"><summary>搜索服务设置</summary><p>使用你自己的 DeepSeek API key。密钥经系统加密后仅保存在本机；查询和主动提取的公开正文会发送给 DeepSeek。</p><form id="provider-form"><label for="provider-key">DeepSeek API key</label><input id="provider-key" type="password" autocomplete="off" spellcheck="false"><button type="submit">保存到本机</button></form></details>
         <div class="note">这是开发者验证原型。真实页面操作与正式安全边界尚未完成。</div>
       </section>
 

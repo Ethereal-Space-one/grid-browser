@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('grid', {
   actionPause: () => ipcRenderer.invoke('grid:action-pause'),
   actionResume: () => ipcRenderer.invoke('grid:action-resume'),
   actionCancel: () => ipcRenderer.invoke('grid:action-cancel'),
+  configureKey: (key: string) => ipcRenderer.invoke('grid:configure-key', key),
   setScene: (scene: string) => ipcRenderer.invoke('grid:scene', scene),
   extract: (url: string, scene: string) => ipcRenderer.invoke('grid:extract', url, scene),
   submit: (input: string, options?: object) => ipcRenderer.invoke('grid:submit', input, options),

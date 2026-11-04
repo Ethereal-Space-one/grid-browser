@@ -1,5 +1,5 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, session, WebContentsView } from 'electron';
-import { writeFileSync } from 'node:fs';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, session, safeStorage, WebContentsView } from 'electron';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { checkedUrl, classifyInput } from './intent';
 import { normalizeSearchResults, type SearchHit } from './search';
@@ -23,7 +23,7 @@ let hasResults = false;
 let lastQuery = '';
 let selectedScene: Scene = 'professional';
 let currentReading: Reading | undefined;
-const configuredKey = process.env.DEEPSEEK_API_KEY || process.env.DeepSeek_ApiKeyN;
+let configuredKey = process.env.DEEPSEEK_API_KEY || process.env.DeepSeek_ApiKeyN;
 let bridge: LocalBridge | undefined;
 let documentEpoch = 0;
 let agentPanelOpen = false;
@@ -199,7 +199,18 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  const keyFile = path.join(app.getPath('userData'), 'provider-key.bin');
+  if (!configuredKey && existsSync(keyFile) && await safeStorage.isAsyncEncryptionAvailable()) {
+    try { configuredKey = (await safeStorage.decryptStringAsync(readFileSync(keyFile))).result; } catch { /* User may reconfigure if the local keychain changed. */ }
+  }
   createWindow();
+  ipcMain.handle('grid:configure-key', async (event, key: unknown) => {
+    assertUiSender(event.sender.id);
+    if (typeof key !== 'string' || key.trim().length < 10 || key.length > 512) throw new Error('请输入有效的 DeepSeek API key');
+    if (!await safeStorage.isAsyncEncryptionAvailable()) throw new Error('系统加密存储暂不可用；可从终端配置环境变量');
+    writeFileSync(keyFile, await safeStorage.encryptStringAsync(key.trim()), { mode: 0o600 });
+    configuredKey = key.trim(); notifyState();
+  });
 
   ipcMain.handle('grid:state', event => { assertUiSender(event.sender.id); return state(); });
   ipcMain.handle('grid:submit', async (event, input: string, options?: { scene?: unknown; contextual?: unknown }) => {
@@ -278,11 +289,11 @@ app.whenReady().then(async () => {
     if (format !== 'json' && format !== 'codex') throw new Error('不支持的客户端配置格式');
     if (!bridge) throw new Error('MCP bridge is not ready');
     const npmNode = process.env.npm_node_execpath;
-    const command = npmNode && path.isAbsolute(npmNode) ? npmNode : 'node';
-    const config = { mcpServers: { grid: { command, args: [path.join(__dirname, 'mcp.js'), '--connection-file', bridge.connectionFile] } } };
+    const command = app.isPackaged ? process.execPath : npmNode && path.isAbsolute(npmNode) ? npmNode : 'node';
+    const config = { mcpServers: { grid: { command, args: [path.join(__dirname, 'mcp.js'), '--connection-file', bridge.connectionFile], ...(app.isPackaged ? { env: { ELECTRON_RUN_AS_NODE: '1' } } : {}) } } };
     const server = config.mcpServers.grid;
     const text = format === 'codex'
-      ? `[mcp_servers.grid]\ncommand = ${JSON.stringify(server.command)}\nargs = ${JSON.stringify(server.args)}\n`
+      ? `[mcp_servers.grid]\ncommand = ${JSON.stringify(server.command)}\nargs = ${JSON.stringify(server.args)}\n${server.env ? 'env = { ELECTRON_RUN_AS_NODE = "1" }\n' : ''}`
       : JSON.stringify(config, null, 2);
     await clipboard.writeText(text);
   });
@@ -308,6 +319,20 @@ app.whenReady().then(async () => {
   });
   try { await bridge.start(); notifyState(); }
   catch { bridge.close(); bridge = undefined; console.error('Grid MCP bridge could not start'); }
+  if (process.argv.includes('--preview-smoke')) {
+    void (async () => {
+      try {
+        for (let i = 0; i < 100; i++) {
+          try {
+            const ready = await window.webContents.executeJavaScript('Boolean(window.grid && document.querySelector("#home-search"))');
+            if (ready) { console.log(JSON.stringify({ packagedPreview: 'passed', scene: state().scene, keyReady: state().keyReady })); app.quit(); return; }
+          } catch { /* Wait for preload and UI. */ }
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        throw new Error('Packaged UI startup timeout');
+      } catch { app.exit(1); }
+    })();
+  }
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 

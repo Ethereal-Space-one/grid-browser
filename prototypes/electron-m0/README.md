@@ -11,7 +11,7 @@ npm ci
 npm start
 ```
 
-若要使用 DeepSeek Search/Fetch，请在启动前于本机终端设置 `DEEPSEEK_API_KEY`。密钥只由 Electron 主进程读取，不进入网页或渲染器；不要把密钥写入仓库或截图。未配置时可直接输入 HTTPS 网址，也可访问本机测试页：先在仓库根目录运行 `python3 scripts/serve-fixtures.py`，再输入 `http://127.0.0.1:8765/`。
+若要使用 DeepSeek Search/Fetch，请在启动前于本机终端设置 `DEEPSEEK_API_KEY`。环境变量中的密钥只由 Electron 主进程读取，不进入远程网页；首页也可通过临时密码输入框保存密钥，随后清空输入框并由主进程系统加密存储。不要把密钥写入仓库或截图。未配置时可直接输入 HTTPS 网址，也可访问本机测试页：先在仓库根目录运行 `python3 scripts/serve-fixtures.py`，再输入 `http://127.0.0.1:8765/`。
 
 也兼容已导出的 `DeepSeek_ApiKeyN`；同时存在时优先使用 `DEEPSEEK_API_KEY`。配置后运行 `npm run test:e2e:live`，会在临时浏览器资料档中用真实接口依次验证：搜索与结果展示、Fetch 正文、原页打开、返回结果与查询恢复。它会消耗少量 API 调用，不输出密钥；每个步骤有超时，完整测试最多 90 秒。此项需网络与本机窗口权限，不在普通 CI 中使用真实 key。
 
@@ -26,7 +26,7 @@ npm start
 ## 让现有 AI 工具读取当前页
 
 1. 用 `npm start` 打开 Grid，并进入要读取的真实网页。
-2. 点击 **Agent**，选择 **Claude Code / 通用 JSON** 或 **Codex TOML**，再点击 **复制 MCP 配置**，将配置加入对应客户端；本机需有 Node.js 22.12+。通过 npm 启动时会复制实际 Node 可执行文件的绝对路径，减少 GUI 客户端找不到 nvm 中 Node 的问题。配置不包含模型 key，MCP 读取本身不需要 key。
+2. 点击 **Agent**，选择 **Claude Code / 通用 JSON** 或 **Codex TOML**，再点击 **复制 MCP 配置**，将配置加入对应客户端；源码启动需有 Node.js 22.12+；打包预览使用内置运行时。通过 npm 启动时会复制实际 Node 可执行文件的绝对路径，减少 GUI 客户端找不到 nvm 中 Node 的问题。配置不包含模型 key，MCP 读取本身不需要 key。
 3. 在客户端调用 `grid_connection_status`，Grid 会显示该客户端的连接请求；确认页面后点击 **允许读取当前页**。
 4. 客户端调用 `grid_page_snapshot` 读取页面语义摘要；在 Grid 中可随时撤销，也可导出 JSON 读取回执。导航后需要重新授权。
 
@@ -59,3 +59,7 @@ npm start
 专业、学习、生活、娱乐、灵感五种场景会切换配色与轻量动效。默认按场景优化 Search 查询；可取消勾选使用原始查询，结果页显示实际查询。网址直达保持原样。
 
 Fetch 正文打开后，可主动点击“按当前场景提取重点”；这会额外调用 DeepSeek 模型，发送最多 16000 字符的当前公开正文。AI 重点与原文分开展示，失败时仍可阅读原文。本轮已通过合成响应的端到端参数验证，真实检索质量仍待评价。[实现与验证](../../docs/SEARCH_SCENES_2026-11-04.md)。
+
+## macOS 本地预览包
+
+`npm run package:mac` 生成 `.local/release/Grid Preview.app` 与本机架构 zip，`npm run test:package:mac` 检查打包首页和内置 MCP 运行时。应用可以在首页保存经系统加密的 DeepSeek key；打包后 MCP 不依赖外部 Node。当前仅本地 ad-hoc 签名，尚未完成 Developer ID、公证与跨机器安装验证。[试用说明与三个任务](../../docs/DEVELOPER_PREVIEW_2026-11-04.md) · [设计参考与取舍](../../docs/DESIGN_PRACTICES_2026-11-04.md)。

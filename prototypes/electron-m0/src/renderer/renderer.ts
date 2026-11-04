@@ -9,6 +9,7 @@ type GridApi = {
   actionPause(): Promise<void>;
   actionResume(): Promise<void>;
   actionCancel(): Promise<void>;
+  configureKey(key: string): Promise<void>;
   setScene(scene: string): Promise<void>;
   extract(url: string, scene: string): Promise<{ text: string; scene: string; truncated: boolean }>;
   submit(input: string, options?: { scene: string; contextual: boolean }): Promise<SearchResponse>;
@@ -232,8 +233,14 @@ function renderState(state: State): void {
   document.querySelector<HTMLButtonElement>('#return-results')!.disabled = !state.hasResults;
   document.querySelector<HTMLElement>('#setup')!.textContent = state.keyReady
     ? '已检测到 DeepSeek API key。搜索结果由 DeepSeek 提供；当前原型不生成 AI 总结。'
-    : '未检测到 DeepSeek API key。网址直达可用；搜索需在启动终端配置 DEEPSEEK_API_KEY。';
+    : '搜索尚未配置。你可以在下方保存自己的 DeepSeek API key，或直接输入网址开始浏览。';
 }
+document.querySelector('#provider-form')!.addEventListener('submit', event => {
+  event.preventDefault();
+  const field = document.querySelector<HTMLInputElement>('#provider-key')!;
+  const key = field.value; field.value = '';
+  void work(() => grid.configureKey(key));
+});
 grid.onState(renderState);
 void grid.state().then(renderState);
 })();

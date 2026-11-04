@@ -1,0 +1,5 @@
+task,tool,scene,completed,seconds,steps,usable_top3_results,source_checked,takeover_succeeded,friction,use_again
+A,Grid,,,,,,,,,
+A,usual-browser,,,,,,,,,
+B,Grid+coding-tool,,,,,,,,,
+C,Grid+coding-tool,,,,,,,,,

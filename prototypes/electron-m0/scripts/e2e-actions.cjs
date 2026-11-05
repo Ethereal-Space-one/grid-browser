@@ -23,7 +23,7 @@ app.whenReady().then(async () => {
     const url = `http://127.0.0.1:${fixture.address().port}`;
     await ui(`window.grid.open(${JSON.stringify(url + '/actions.html')})`);
     await ui('window.grid.agentPanel(true)');
-    const content = win.contentView.children.find(v => v.webContents && v.webContents.id !== win.webContents.id).webContents;
+    const content = win.contentView.children.find(v => v.webContents && /^https?:/.test(v.webContents.getURL())).webContents;
     const value = () => content.executeJavaScript('document.querySelector("input[name=task]").value');
     const preview = () => ui('window.grid.actionPreview("合成任务-42")');
     const confirm = () => ui('window.grid.state().then(s => window.grid.actionConfirm(s.action.id))');
@@ -71,7 +71,7 @@ app.whenReady().then(async () => {
     const call = (name, args = {}) => client.callTool({ name, arguments: args });
     await call('grid_connection_status');
     assert.equal((await call('grid_form_propose', { value: 'external-plan' })).isError, true);
-    await ui('window.grid.state().then(s => window.grid.agentGrant(s.agent.connections[0].id))');
+    await ui('window.grid.state().then(s => window.grid.agentGrant(s.agent.connections[0].id,s.agent.page?.documentId))');
     const proposal = await call('grid_form_propose', { value: 'external-plan' });
     assert.ok(!proposal.isError);
     assert.equal(await value(), '');
@@ -84,7 +84,7 @@ app.whenReady().then(async () => {
     await ui('window.grid.state().then(s => window.grid.agentRevoke(s.agent.connections[0].id))');
     await assert.rejects(confirm());
     report.push('revoke-cancels-external-plan');
-    await ui('window.grid.state().then(s => window.grid.agentGrant(s.agent.connections[0].id))');
+    await ui('window.grid.state().then(s => window.grid.agentGrant(s.agent.connections[0].id,s.agent.page?.documentId))');
     await call('grid_form_propose', { value: 'disconnect-test' });
     await client.close(); client = undefined;
     for (let n = 0; n < 100; n++) {

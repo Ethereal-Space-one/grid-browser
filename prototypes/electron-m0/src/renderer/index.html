@@ -6,9 +6,17 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'">
     <title>Grid · M0</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="path-map.css">
+    <link rel="stylesheet" href="understanding.css">
+    <link rel="stylesheet" href="comparison.css">
+    <link rel="stylesheet" href="judgment.css">
+    <link rel="stylesheet" href="storage.css">
+    <link rel="stylesheet" href="reading-shell.css">
   </head>
   <body data-scene="professional">
+    <div id="browser-chrome">
     <header class="toolbar">
+      <button id="sidebar-toggle" class="nav" type="button" aria-label="切换探索侧栏" aria-expanded="true" aria-controls="exploration-sidebar">☷</button>
       <div class="brand" aria-label="Grid">GRID<span class="brand-mark">/</span></div>
       <button id="back" class="nav" type="button" aria-label="后退">←</button>
       <button id="forward" class="nav" type="button" aria-label="前进">→</button>
@@ -18,11 +26,43 @@
         <input id="input" autocomplete="off" spellcheck="false" placeholder="输入网址，或主动搜索一个问题">
         <button type="submit">前往 ↗</button>
       </form>
+      <button id="ask-page" class="home" type="button" hidden>问这页</button>
       <button id="return-results" class="home" type="button" disabled>结果</button>
       <button id="home" class="home" type="button">首页</button>
       <button id="agent-toggle" class="home" type="button" aria-expanded="false" aria-controls="agent-panel">Agent</button>
     </header>
 
+    <nav class="tab-strip" aria-label="浏览标签">
+      <div id="tab-list" class="tab-list" role="tablist" aria-label="打开的标签"></div>
+      <button id="storage-toggle" type="button" aria-expanded="false" aria-controls="storage-panel">记录 · 本地</button>
+      <button id="new-tab" type="button" aria-label="新建标签" title="新建标签 (⌘/Ctrl+T)">+</button>
+      <div id="busy" class="busy hidden" role="status"><span id="busy-label">正在获取结果…</span><button id="cancel-request" type="button">取消请求</button></div>
+      <button id="new-window" type="button" title="新建窗口 (⌘/Ctrl+N)">新窗口</button>
+    </nav>
+
+    <div id="page-tools" hidden><span id="page-scene"></span><button id="summarize-page" type="button">总结这页</button><details id="page-more"><summary>更多</summary><div><button id="page-clean" type="button">干净正文</button><button id="page-map" type="button">查看地图与活动</button></div></details></div>
+    <section id="page-summary" aria-label="网页总结" hidden><div class="page-summary-heading"><strong>这页说了什么</strong><span id="page-summary-status" role="status"></span><button id="page-summary-stop" type="button" hidden>停止</button><button id="page-summary-close" type="button" aria-label="收起网页总结">×</button></div><p class="page-summary-scope">主动获取公开正文，最多 16000 字符发给 DeepSeek；不含登录态或实时动态内容。</p><div class="page-summary-scroll"><p id="page-summary-text"></p><details><summary>查看依据</summary><div id="page-summary-citations"></div></details></div></section>
+    <nav id="path-bar" class="path-bar" aria-label="当前浏览路径" hidden>
+      <ol id="path-trail" class="path-trail"></ol>
+      <p id="path-error" class="path-error" role="alert" hidden></p>
+      <button id="path-toggle" class="path-toggle" type="button" aria-expanded="false" aria-controls="path-map"><span class="path-toggle-label">地图</span><span class="path-chevron" aria-hidden="true">›</span></button>
+    </nav>
+    <div id="aux-panels">
+    <section id="storage-panel" class="storage-panel understanding" aria-labelledby="storage-title" hidden>
+      <div class="understanding-heading"><h2 id="storage-title" tabindex="-1">本地记录</h2><div class="understanding-actions"><button id="storage-save" type="button">立即保存</button><button id="storage-temporary" type="button">新建非持久路径</button><button id="storage-close" type="button">收起</button></div></div>
+      <p id="storage-status" role="status"></p>
+      <details class="storage-policy"><summary>保存范围与容量</summary><p id="storage-policy" class="storage-caption">任务文件仅在本机，未单独加密。保存查询、回答、草稿、判断与路径；正文全文和网站字段不进入任务文件。非持久路径不写入任务文件，各标签仍共用网站登录状态。</p><p id="storage-capacity" class="storage-caption"></p></details>
+      <ul id="storage-list" class="storage-list" aria-label="最近的本地记录"></ul>
+    </section>
+    <section id="comparison-tray" class="comparison-tray understanding" aria-label="临时选择的对照来源" hidden>
+      <div class="comparison-tray-top"><span id="comparison-count" class="comparison-count" role="status"></span><ol id="comparison-selection" class="comparison-selection"></ol><button id="comparison-start" type="button" hidden>对照这两份</button></div>
+      <p id="comparison-send-note" hidden>对照时每份最多发送 16000 字符公开正文给 DeepSeek，不读取登录态页面。</p>
+    </section>
+    <section id="path-map" class="path-map" aria-labelledby="path-map-title" hidden>
+      <div class="path-map-heading"><h2 id="path-map-title">本次浏览</h2><p id="path-summary"></p><button id="path-close" class="path-close" type="button" title="收起地图 (Esc)">收起</button></div>
+      <nav id="path-tree-scroll" class="path-tree-scroll" aria-label="浏览分支地图"><ol id="path-tree" class="path-tree"></ol></nav>
+      <p id="path-storage-note" class="path-note">保存状态可在本地记录中查看。</p>
+    </section>
     <section id="agent-panel" class="agent-panel hidden" aria-label="本机 Agent 读取授权与填写提案">
       <div class="agent-heading"><strong>本机 Agent · 读取与填写提案</strong><select id="agent-config-format" aria-label="客户端配置格式"><option value="json">Claude Code / 通用 JSON</option><option value="codex">Codex TOML</option></select><button id="agent-config" type="button">复制 MCP 配置</button><button id="agent-export" type="button">导出读取回执</button></div>
       <div class="form-action">
@@ -36,7 +76,17 @@
       <p class="agent-hint">客户端名称为自行声明。页面文字会返回给该客户端。授权后可读取及提出本地测试填写计划，每次填写仍需在 Grid 单独确认。只授权当前文档，最长 10 分钟；导航或撤销后失效。回执不保存正文。</p>
       <div id="agent-connections" class="agent-connections" aria-live="polite"></div>
     </section>
-    <main id="surface" class="surface">
+    </div>
+    </div>
+    <aside id="exploration-sidebar" aria-label="探索标签"><div id="exploration-heading"><strong>探索</strong></div><div id="explorations"></div><p id="pages-label"></p><nav id="exploration-pages" aria-label="本次探索的网页"></nav><div id="sidebar-footer"></div></aside>
+    <main id="surface" class="surface" role="tabpanel">
+      <button id="companion-close" type="button" hidden>收起辅助面板 ×</button>
+      <section id="page-recovery" class="page-recovery hidden" aria-labelledby="page-recovery-title">
+        <div class="eyebrow">浏览路径</div><h1 id="page-recovery-title" tabindex="-1">正在打开页面</h1>
+        <p id="page-recovery-url" class="subline"></p><p id="page-recovery-message" role="status"></p>
+        <button id="reopen-page" type="button">重新打开地址（不重发表单）</button>
+        <p class="subline">重新打开会访问该地址，页面内容可能变化；不会恢复旧授权或执行 Agent 操作。</p>
+      </section>
       <section id="welcome" class="welcome">
         <div class="eyebrow">GRID · 开发者预览</div>
         <h1>从一个问题开始。</h1>
@@ -52,21 +102,40 @@
         <form id="home-search" class="home-search"><label class="sr-only" for="home-query">搜索问题或网址</label><input id="home-query" placeholder="现在，你想了解什么？" autocomplete="off"><button type="submit">开始探索 ↗</button></form>
         <label class="contextual-option"><input id="contextual-search" type="checkbox" checked>按场景优化搜索 <span>仅用于这次主动查询，不生成推荐流</span></label>
         <div id="setup" class="setup" role="status"></div>
-        <details class="provider-settings"><summary>搜索服务设置</summary><p>使用你自己的 DeepSeek API key。密钥经系统加密后仅保存在本机；查询和主动提取的公开正文会发送给 DeepSeek。</p><form id="provider-form"><label for="provider-key">DeepSeek API key</label><input id="provider-key" type="password" autocomplete="off" spellcheck="false"><button type="submit">保存到本机</button></form></details>
+        <details class="provider-settings">
+          <summary>搜索服务设置</summary>
+          <p id="provider-key-hint">仅需 DeepSeek API key，不需要电脑登录密码。密钥仅用于本次运行，不保存到磁盘；完全退出 Grid 后需重新填写。</p>
+          <form id="provider-form">
+            <label for="provider-key">DeepSeek API key</label>
+            <input id="provider-key" type="password" autocomplete="off" spellcheck="false" required minlength="10" maxlength="512" aria-describedby="provider-key-hint">
+            <button id="provider-enable" type="submit">本次启用</button>
+          </form>
+          <p id="provider-status" role="status" aria-live="polite"></p>
+          <p>搜索查询、你主动请求的总结与问答所用公开正文会发送给 DeepSeek。</p>
+        </details>
         <div class="note">这是开发者验证原型。真实页面操作与正式安全边界尚未完成。</div>
       </section>
 
       <section id="results" class="results hidden" aria-labelledby="results-title">
         <div class="eyebrow">SEARCH / RESULTS FIRST</div>
         <h1 id="results-title"></h1>
-        <p class="subline">结果来自 DeepSeek Search。排序由提供者决定；Grid 当前保持原顺序。尚无模型总结与原文核对。</p>
-        <p id="search-context" class="subline"></p>
+        <details id="search-details" class="search-details"><summary id="search-details-label">来源与实际查询</summary>
+          <p class="subline">结果来自 DeepSeek Search。排序由提供者决定；Grid 当前保持原顺序。模型总结按需生成；不代表原文核对。</p>
+          <p id="search-context" class="subline"></p>
+        </details>
+        <section id="summary-slot" class="summary-slot understanding" aria-label="搜索短总结" hidden>
+          <div class="understanding-heading"><strong>短总结</strong><button id="summary-cancel" type="button" hidden>停止</button><button id="summarize" type="button">生成短总结</button></div>
+          <p>点击后将前 10 条搜索摘要发送给 DeepSeek，最多三句；未核对原文。</p>
+          <div class="summary-scroll"><p id="summary-label" role="status"></p><p id="summary-text"></p><div id="summary-sources" class="summary-sources"></div></div>
+        </section>
         <div id="result-list" class="result-list"></div>
       </section>
 
       <section id="reading" class="reading hidden" aria-labelledby="reading-title">
         <div class="reading-top">
           <div class="eyebrow">CLEAN READING / FETCH</div>
+          <button id="refetch-reading" type="button" hidden>重新获取正文</button><button id="comparison-reading" type="button" aria-pressed="false">选作对照</button>
+          <button id="ask-reading" type="button">问这页</button>
           <button id="open-reading-source" type="button">打开真实原页 ↗</button>
         </div>
         <h1 id="reading-title"></h1>
@@ -76,9 +145,50 @@
         <pre id="reading-content"></pre>
       </section>
 
+      <section id="question-view" class="question-view understanding hidden" aria-labelledby="question-title">
+        <div class="understanding-heading"><span class="eyebrow">围绕这页</span><div class="understanding-actions"><button id="judgment-from-question" type="button" hidden>记录我的判断</button><button id="comparison-question" type="button" aria-pressed="false" hidden>选作对照</button><button id="question-origin" type="button">返回来源位置</button><button id="question-open" type="button">打开原页 ↗</button></div></div>
+        <h1 id="question-title" tabindex="-1">问这页</h1><p id="question-url" class="subline"></p>
+        <p id="source-version" class="question-caption"></p>
+        <section id="answer-section" class="answer-section" hidden><h2 id="asked-question"></h2><p id="answer-time" class="question-caption"></p><pre id="answer-text"></pre><ol id="answer-citations" class="answer-citations" aria-label="回答依据"></ol></section>
+        <form id="question-form" class="question-form"><label for="question-input">你想问这页什么？</label>
+          <textarea id="question-input" maxlength="2000" required aria-describedby="question-scope question-status" placeholder="例如：这里的结论有哪些适用条件？"></textarea>
+          <p id="question-scope" class="question-caption"></p><p id="question-status" class="question-caption" role="status"></p>
+          <div class="understanding-actions"><button id="question-cancel" type="button" hidden>停止回答</button><button id="question-submit" type="submit">提问</button></div>
+        </form>
+        <details id="question-evidence" class="question-evidence" hidden><summary>查看本次提供给模型的正文</summary><pre id="question-source-text" tabindex="0" aria-label="本次模型正文"></pre></details>
+      </section>
+      <section id="comparison-view" class="comparison-view understanding hidden" aria-labelledby="comparison-title">
+        <div class="understanding-heading comparison-heading"><div class="eyebrow">两份资料 · 逐项核对</div><div class="understanding-actions"><button id="judgment-from-comparison" type="button" hidden>记录我的判断</button><button id="comparison-cancel" type="button" hidden>停止对照</button><button id="comparison-retry" type="button">按相同正文重试</button></div></div><h1 id="comparison-title" tabindex="-1">来源对照</h1>
+        <p id="comparison-topic"></p><p id="comparison-version" class="comparison-caption"></p>
+        <p class="comparison-caption">仅使用明确选择的公开正文片段。引文匹配不代表结论正确，原页内容可能已变化。</p>
+
+        <p id="comparison-status" class="comparison-caption" role="status"></p>
+        <div id="comparison-sources" class="comparison-sources"></div>
+        <p id="comparison-overview"></p><div id="comparison-rows"></div><p id="comparison-limitations" class="comparison-caption"></p>
+      </section>
+      <section id="judgment-view" class="judgment-view understanding hidden" aria-labelledby="judgment-title">
+        <div class="understanding-heading judgment-heading"><span class="eyebrow">留下一步 · 自己的判断</span><div class="understanding-actions"><button id="judgment-origin" type="button">返回参考位置</button><button id="judgment-revise" type="button" hidden>修改为新草稿</button><div class="understanding-actions judgment-footer"><button id="judgment-retry" type="button" hidden>重试保留草稿</button><button id="judgment-save" type="submit" form="judgment-form">保存为新版本</button></div></div></div>
+        <h1 id="judgment-title" tabindex="-1">我的判断</h1><p id="judgment-topic"></p><p id="judgment-version" class="judgment-caption"></p>
+        <form id="judgment-form" class="judgment-form">
+          <label for="judgment-text">我的判断 <span>由你撰写</span></label><textarea id="judgment-text" maxlength="4000" required aria-describedby="judgment-boundary judgment-status" placeholder="读过这些资料后，你目前的结论是什么？"></textarea>
+          <label for="judgment-checks">还需要核对什么 <span>可选</span></label><textarea id="judgment-checks" maxlength="2000" aria-describedby="judgment-status" placeholder="哪些条件、分歧或信息缺口还需要确认？"></textarea>
+        </form>
+        <section id="judgment-saved" hidden><h2>当前结论</h2><pre id="judgment-saved-text"></pre><h2>待核事项</h2><pre id="judgment-saved-checks"></pre></section>
+        <section id="judgment-reference-area"><details id="judgment-citation-options"><summary id="judgment-citation-label">附上原文引文（可选）</summary><fieldset id="judgment-references" form="judgment-form"></fieldset></details>
+          <details id="judgment-model"><summary>参考：这版 AI 建议 · 未核对</summary><p class="judgment-caption">仅供回看，不会自动写入你的判断。附上引文也不代表完成事实核验。</p><pre id="judgment-model-note"></pre></details>
+        </section>
+        <p id="judgment-status" class="judgment-caption" role="status"></p>
+        <p id="judgment-boundary" class="judgment-caption">仅保留在本次运行中，退出后暂不保存；这一步的个人文字不发送给模型。</p>
+      </section>
       <div id="error" class="error hidden" role="alert"></div>
-      <div id="busy" class="busy hidden" role="status">正在获取结果…</div>
     </main>
+    <p id="path-announcement" class="sr-only" role="status"></p>
+    <script src="path-map.js"></script>
+    <script src="understanding.js"></script>
+    <script src="comparison.js"></script>
+    <script src="judgment.js"></script>
+    <script src="storage.js"></script>
+    <script src="reading-shell.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>

@@ -15,7 +15,9 @@ export function classifyInput(raw: string): Intent {
 }
 
 export function checkedUrl(raw: string): string {
-  const url = new URL(raw);
+  if (typeof raw !== 'string' || raw.length > 8192) throw new Error('网址格式无效');
+  let url: URL;
+  try { url = new URL(raw); } catch { throw new Error('网址格式无效'); }
   const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
   if (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) {
     throw new Error('当前原型只打开 HTTPS 或本机测试站点');

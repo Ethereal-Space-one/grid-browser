@@ -4,7 +4,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync 
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-export type PageIdentity = { documentId: string; url: string; title: string };
+export type PageIdentity = { documentId: string; url: string; title: string; windowId?: string; tabId?: string };
 export type PageSnapshot = PageIdentity & { text: string; truncated: boolean; trust: string };
 type Grant = PageIdentity & { expiresAt: number };
 type Connection = { id: string; name: string; socket: Socket; grant?: Grant };
@@ -79,7 +79,9 @@ export class LocalBridge {
 
   private valid(c: Connection): boolean {
     const current = this.currentPage();
-    return Boolean(c.grant && current && c.grant.documentId === current.documentId && c.grant.url === current.url && c.grant.expiresAt > Date.now());
+    const valid = Boolean(c.grant && current && c.grant.documentId === current.documentId && c.grant.url === current.url && c.grant.expiresAt > Date.now());
+    if (!valid && c.grant) { c.grant = undefined; this.proposals?.cancel(c.id); }
+    return valid;
   }
 
   private record(receipt: ReadReceipt): void {

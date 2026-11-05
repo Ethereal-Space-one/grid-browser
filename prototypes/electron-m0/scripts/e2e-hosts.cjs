@@ -127,7 +127,7 @@ app.whenReady().then(async () => {
         if (proposeMode && connectionId && fullState.action?.owner?.id === connectionId && fullState.action.status === 'preview' && confirmedMs === undefined) {
           assert.equal(state.page.url, pageUrl);
           assert.equal(fullState.action.value, marker);
-          const remote = win.contentView.children.find(v => v.webContents && v.webContents.id !== win.webContents.id).webContents;
+          const remote = win.contentView.children.find(v => v.webContents && /^https?:/.test(v.webContents.getURL())).webContents;
           assert.equal(await remote.executeJavaScript('document.querySelector("input[name=task]").value'), '');
           proposalMs = Date.now() - started;
           await until(async () => await ui('document.querySelector("#action-status").textContent.includes("请确认")'), 'preview rendered');

@@ -18,6 +18,7 @@ app.whenReady().then(async()=>{
     win.setContentSize(width,820);await pause(200);
     assert.equal(await ui('document.documentElement.scrollWidth <= innerWidth'),true,`${appearance} ${width} overflow`);
     assert.equal(await ui(`(() => { const r=document.querySelector('#home-search button').getBoundingClientRect();return r.right<=innerWidth && r.top>=0 && r.bottom<innerHeight;})()`),true,'search action visible');
+    assert.equal(await ui(`['new-tab','new-window'].every(id => { const r=document.getElementById(id).getBoundingClientRect();return r.left>=0 && r.right<=innerWidth && r.top>=0 && r.bottom<=124;})`),true,'tab and window controls visible');
     if(width===1180)writeFileSync(path.join(dir,`preview-${appearance}.png`),(await win.capturePage()).toPNG());
    }
   }

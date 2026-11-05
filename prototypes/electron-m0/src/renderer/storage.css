@@ -1,0 +1,22 @@
+/* Hallmark · component: local path management · modern-minimal · existing Grid tokens
+ * pre-emit critique: P5 H4 E4 S4 R5 V3; default/hover/focus/active/disabled/loading/error/success reuse understanding.css.
+ */
+#storage-toggle { white-space: nowrap; color: var(--color-accent); }
+#storage-toggle[data-state='error'], #storage-status[data-state='error'] { color: var(--color-danger); }
+#storage-toggle[data-state='loading'], #storage-status[data-state='loading'] { color: var(--color-accent); }
+#storage-toggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+#storage-toggle:active { background: var(--color-tint); }
+.storage-panel { max-height: min(380px,var(--aux-budget)); min-height: 110px; overflow-y: auto; overscroll-behavior: contain; flex-shrink: 1; padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--color-rule); color: var(--color-ink); background: var(--color-paper); }
+.storage-panel .understanding-heading { justify-content: space-between; }
+.storage-panel h2 { margin: 0; font-size: var(--text-body); }
+.storage-policy { margin-block: var(--space-xs); }
+.storage-policy summary { cursor: pointer; color: var(--color-accent); font-size: var(--text-caption); }
+.storage-panel :is(button,summary) { white-space: nowrap; }
+.storage-caption, #storage-status { font-size: var(--text-caption); line-height: 1.65; margin-block: var(--space-xs); overflow-wrap: anywhere; color: var(--color-muted); }
+.storage-list { list-style: none; margin: 0; padding: 0; }
+.storage-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); border-top: 1px solid var(--color-rule); padding-block: var(--space-sm); }
+.storage-row > div { min-width: 0; }
+.storage-row > div:first-child { flex: 1; }
+.storage-row strong { display: block; font-size: var(--text-body); line-height: 1.6; overflow-wrap: anywhere; }
+@media (max-width: 540px) { .storage-panel { padding-inline: var(--space-sm); } .storage-row { align-items: flex-start; flex-direction: column; } .storage-panel .understanding-heading { flex-direction: column; align-items: flex-start; } }
+@media (hover: hover) { #storage-toggle:hover { background: var(--color-tint); } }

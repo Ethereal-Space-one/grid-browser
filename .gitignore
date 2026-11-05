@@ -12,3 +12,6 @@ secrets/
 private.pem
 docs/t0-results.csv
 docs/media-results.csv
+
+# Local design-tool working notes
+.hallmark/

@@ -4,6 +4,8 @@
 
 2026-11-03 收尾复验通过，实际宿主接入仍为下一阶段。
 
+后续状态说明（2026-11-04）：以下正文保留初始只读决策。之后已完成[真实宿主读取](../SMOKE_HOSTS_2026-11-03.md)和[本地固定字段提案](../UX_HOST_FORMS_2026-11-03.md)实验，现工具面还包含 `grid_form_propose` / `grid_form_status`，执行确认仍只在 Grid；不代表通用写权限。下一阶段权限与状态分层见 [ADR 0002 提案](./0002-next-stage-architecture.md)。
+
 首批开发者已有 AI 工具。Grid 先提供标准 stdio MCP 接口，使这些工具能在用户明确授权后读取当前真实页面，避免先建设独立模型编排栈。
 
 采用官方 MCP TypeScript v2 SDK（本次固定服务端/客户端 2.4.0）与 Node/TypeScript。桥接进程和 Electron 之间使用 Unix socket / Windows named pipe，不启动 HTTP 端口，不向外开放 CDP。连接信息保存在用户资料档中的本机文件，包含本次运行随机令牌；复制的 MCP 配置只含桥接入口和文件路径，不含令牌或模型 key。

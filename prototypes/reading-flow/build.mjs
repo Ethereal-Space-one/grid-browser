@@ -1,0 +1,12 @@
+import {readFile, writeFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+const dir=path.dirname(fileURLToPath(import.meta.url));
+const [tokens,css,markup,js,compat]=await Promise.all(['../../tokens.css','styles.css','shell.html','app.js','inline-compat.js'].map(p=>readFile(path.join(dir,p),'utf8')));
+const scoped=tokens.replaceAll(':root','#grid-flow').replaceAll('body[data-scene=', '#grid-flow[data-scene=');
+const preview=await readFile(path.join(dir,'assets/attention-preview.png'));
+const embeddedJS=js.replace('__GRID_ATTENTION_PREVIEW__',`data:image/png;base64,${preview.toString('base64')}`);
+const fragment=`<script>\n${compat}\n</script>\n<style>\n${scoped}\n${css}\n</style>\n${markup}\n<script>\n${embeddedJS}\n</script>\n`;
+await writeFile(path.join(dir,'index.html'),`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>Grid · 同窗阅读交互原型</title><style>html,body{margin:0;overflow-x:clip}body{padding:16px}</style></head><body>${fragment}</body></html>`);
+if(process.argv[2]) await writeFile(path.resolve(process.argv[2]),fragment);
+console.log('Built Grid reading-flow prototype (offline, synthetic content).');

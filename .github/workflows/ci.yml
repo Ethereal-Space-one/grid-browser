@@ -30,6 +30,46 @@ jobs:
       - name: Build and check M0 contracts
         working-directory: prototypes/electron-m0
         run: npm test
+      - name: Check request lifecycle in Electron
+        if: runner.os == 'macOS'
+        working-directory: prototypes/electron-m0
+        run: npm run test:e2e:requests
+      - name: Check session credentials without keychain access
+        if: runner.os == 'macOS'
+        working-directory: prototypes/electron-m0
+        run: npm run test:e2e:key-storage
+      - name: Check tab and window isolation in Electron
+        if: runner.os == 'macOS'
+        working-directory: prototypes/electron-m0
+        run: npm run test:e2e:tabs
+      - name: Check branch state and cache retention in Electron
+        if: runner.os == 'macOS'
+        working-directory: prototypes/electron-m0
+        run: npm run test:e2e:path-state
+      - name: Check native visit recovery without repeating submissions
+        if: runner.os == 'macOS'
+        working-directory: prototypes/electron-m0
+        run: npm run test:e2e:navigation
+      - name: Check clickable path map and native layout
+        if: runner.os == 'macOS'
+        working-directory: prototypes/electron-m0
+        run: npm run test:e2e:path-map
+      - name: Check source-bound summary and independent page questions
+        if: runner.os == 'macOS'
+        working-directory: prototypes/electron-m0
+        run: npm run test:e2e:understanding
+      - name: Check committed tasks across independent processes
+        if: runner.os == 'macOS'
+        working-directory: prototypes/electron-m0
+        run: npm run test:e2e:storage
+      - name: Check personal judgments and immutable runtime versions
+        if: runner.os == 'macOS'
+        working-directory: prototypes/electron-m0
+        run: npm run test:e2e:judgment
+      - name: Check explicit two-source comparison
+        if: runner.os == 'macOS'
+        working-directory: prototypes/electron-m0
+        run: npm run test:e2e:comparison
 
   probe:
     runs-on: macos-latest

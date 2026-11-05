@@ -11,7 +11,7 @@ global.fetch = async (url, options) => {
   const payload = url.endsWith('/search') ? { results: [{title:'场景测试',url:'https://example.com/article',snippet:'测试摘要'}] }
     : url.endsWith('/fetch') ? {title:'测试原文',content:'完整测试正文：预算 100 元；仅适用于本次实验。'}
     : {choices:[{message:{content:'仅依据原文：预算 100 元。'}}]};
-  return {ok:true,json:async()=>payload};
+  return new Response(JSON.stringify(payload), { headers: { 'Content-Type': 'application/json' } });
 };
 require('../dist/main.js');
 app.once('will-quit', () => { if (process.exitCode) app.exit(Number(process.exitCode)); });

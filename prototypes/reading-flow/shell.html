@@ -1,0 +1,28 @@
+<div id="grid-flow" data-scene="professional">
+  <div class="review-bar"><span>交互原型 · 网页与 AI 均为示例，不联网</span><details class="review-options"><summary>演示状态</summary><div><label>下次生成<select id="demo-response"><option value="success">成功</option><option value="error">提取失败</option><option value="empty">搜索无结果</option></select></label><button data-act="chains-demo">查看多标签示例</button><button data-act="reset">重新开始</button></div></details></div>
+  <div class="app-surface">
+    <header class="browser-bar">
+      <button class="icon" data-act="nav" aria-label="打开导航" aria-expanded="false">☰</button>
+      <div class="browser-history"><button class="icon" data-act="back" aria-label="后退" disabled>←</button><button class="icon" data-act="forward" aria-label="前进" disabled>→</button><button class="icon" data-act="reload" aria-label="重新加载" disabled>↻</button></div>
+      <form id="address-form"><label class="sr-only" for="address">网址或搜索</label><input id="address" autocomplete="off" placeholder="网址或搜索" spellcheck="false"><button class="icon" type="submit" aria-label="前往">↵</button></form>
+      <button class="wordmark" data-act="home" aria-label="Grid 首页">grid<span> /</span></button>
+    </header>
+    <div id="agent-strip" hidden><span>Agent 已暂停 · 等待你的决定</span><button data-act="takeover">我来接管</button></div>
+    <div class="workspace">
+      <nav id="navigation" aria-label="浏览导航" hidden></nav>
+      <div class="reading-space">
+        <section id="page-tools" aria-label="当前页面工具" hidden></section>
+        <section id="summary-panel" aria-label="页面总结" aria-live="polite" hidden></section>
+        <div class="content-split">
+          <div class="page-viewport">
+            <main id="main-content" aria-label="主要内容"></main>
+            <div id="map-shortcut"><button id="map-launcher" data-act="map-toggle" aria-expanded="false" aria-controls="floating-map">链式地图</button><button id="map-switch" data-act="chain-picker" aria-label="切换探索标签" aria-expanded="false" aria-controls="chain-picker">⌄</button></div>
+            <section id="floating-map" aria-label="链式地图" hidden></section>
+          </div>
+          <aside id="assistant-panel" aria-label="辅助面板" hidden></aside>
+        </div>
+      </div>
+    </div>
+    <div id="notice" class="notice" role="status" aria-live="polite"></div>
+  </div>
+</div>

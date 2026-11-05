@@ -1,6 +1,6 @@
 const {spawnSync}=require('node:child_process');const path=require('node:path');const assert=require('node:assert/strict');const {mkdtempSync}=require('node:fs');
 const {Client}=require('@modelcontextprotocol/client');const {StdioClientTransport}=require('@modelcontextprotocol/client/stdio');const {LocalBridge}=require('../dist/local-bridge');
-const bundle=path.resolve(__dirname,'../.local/release/Grid Preview.app');const binary=path.join(bundle,'Contents/MacOS/Grid Preview');
+const bundle=process.argv[2]?path.resolve(process.argv[2]):path.resolve(__dirname,'../.local/release/Grid Preview.app');const binary=path.join(bundle,'Contents/MacOS/Grid Preview');
 const env={...process.env};delete env.DEEPSEEK_API_KEY;delete env.DeepSeek_ApiKeyN;
 const smoke=spawnSync(binary,['--preview-smoke','--user-data-dir='+mkdtempSync('/private/tmp/grid-bundle-')],{env,encoding:'utf8',timeout:20000});
 assert.equal(smoke.status,0);assert.ok(smoke.stdout.includes('"packagedPreview":"passed"'));

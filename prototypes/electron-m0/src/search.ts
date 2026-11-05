@@ -1,6 +1,7 @@
 import { checkedUrl } from './intent';
 
-export type SearchHit = { title: string; url: string; snippet: string; site: string; date: string | null };
+import type { SearchHit } from './contracts/browsing';
+export type { SearchHit } from './contracts/browsing';
 
 export function normalizeSearchResults(raw: unknown): SearchHit[] {
   if (!raw || typeof raw !== 'object') return [];

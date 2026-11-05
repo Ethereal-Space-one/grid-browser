@@ -25,7 +25,7 @@ app.whenReady().then(async()=>{
   const reading=await ui(`window.grid.read(${JSON.stringify(url)})`);assert.ok(reading.content.length>0);
   report.push({stage:'fetch',source:url,characters:reading.content.length});console.log(JSON.stringify(report.at(-1)));
   for(const scene of ['professional','learning','living','entertainment','inspiration']){
-   const started=Date.now();const result=await ui(`window.grid.extract(${JSON.stringify(url)},${JSON.stringify(scene)})`);
+   const started=Date.now();const result=await ui(`window.grid.extract(${JSON.stringify(url)},${JSON.stringify(scene)},${JSON.stringify(reading.id)})`);
    assert.equal(result.scene,scene);assert.ok(result.text.trim().length>0);
    report.push({stage:'extract',scene,characters:result.text.length,milliseconds:Date.now()-started});console.log(JSON.stringify(report.at(-1)));
   }

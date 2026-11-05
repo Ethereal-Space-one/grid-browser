@@ -6,7 +6,7 @@ import { LocalBridge, BridgeClient, type PageIdentity, type PageSnapshot } from 
 import { semanticSnapshot } from './semantic-snapshot';
 
 test('MCP read requires current-document grant; navigation and revocation remove access', async context => {
-  let current: PageIdentity = { documentId: 'document-1', url: 'https://example.org/', title: 'Example' };
+  let current: PageIdentity | undefined = { documentId: 'document-1', url: 'https://example.org/', title: 'Example' };
   const bridge = new LocalBridge(() => current, async page => ({ ...page, text: 'public page', truncated: false, trust: 'untrusted' }), () => {});
   const client = new BridgeClient();
   context.after(() => { client.close(); bridge.close(); });
@@ -18,6 +18,14 @@ test('MCP read requires current-document grant; navigation and revocation remove
   assert.equal((await client.call('snapshot') as PageSnapshot).text, 'public page');
   await assert.rejects(client.call('arbitrary.script'), /Unsupported/);
   current = { ...current, documentId: 'document-2' };
+  await assert.rejects(client.call('snapshot'), /not authorized/);
+  current = { ...current, documentId: 'document-1' };
+  await assert.rejects(client.call('snapshot'), /not authorized/);
+  bridge.grant(id);
+  const visiblePage = current;
+  current = undefined;
+  await assert.rejects(client.call('snapshot'), /not authorized/);
+  current = visiblePage;
   await assert.rejects(client.call('snapshot'), /not authorized/);
   bridge.grant(id);
   bridge.revoke(id);

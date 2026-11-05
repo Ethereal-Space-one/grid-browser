@@ -1,0 +1,52 @@
+/* Hallmark · component: source-bound understanding · genre: modern-minimal · theme: Grid
+ * states: default · hover · focus · active · disabled · loading · error · success
+ * pre-emit critique: P5 H4 E4 S4 R5 V3; contrast and viewport evidence in smoke record.
+ */
+.summary-slot { height: auto; margin: var(--space-md) 0; padding: var(--space-sm) var(--space-md); border: 1px solid var(--color-rule); border-radius: var(--radius-surface); background: var(--color-panel); color: var(--color-ink); display: flex; flex-direction: column; }
+.summary-slot[data-expanded='true'] { height: 192px; }
+.summary-slot button { white-space: nowrap; }
+.summary-slot[hidden], [hidden] { display: none !important; }
+.understanding-heading, .understanding-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+.understanding-heading strong { flex: 1; }
+.understanding button, .understanding summary { min-height: 36px; font: inherit; }
+.understanding button { border: 1px solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-panel); color: var(--color-accent); padding: var(--space-xs) var(--space-sm); }
+.understanding button:focus-visible, .understanding button.is-focus, .understanding textarea:focus-visible, .understanding summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.understanding button:active, .understanding button.is-active { background: var(--color-tint); color: var(--color-accent); }
+.understanding button:disabled { opacity: .55; cursor: not-allowed; }
+.understanding button[data-state='loading'] { background: var(--color-tint); color: var(--color-accent); cursor: progress; }
+.understanding button[data-state='error'] { border-color: var(--color-danger); color: var(--color-danger); }
+.understanding button[data-state='success'] { border-color: var(--color-accent); }
+.summary-scroll { overflow: auto; min-height: 0; flex: 1; overscroll-behavior: contain; }
+.summary-slot p, .question-caption { margin: var(--space-xs) 0; font-size: var(--text-caption); color: var(--color-muted); line-height: 1.6; }
+#summary-text { font-size: var(--text-body); color: var(--color-ink); white-space: pre-wrap; }
+.summary-sources { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.summary-slot[data-state='error'] { border-color: var(--color-danger); }
+.summary-slot[data-state='loading'] #summary-label, #question-status[data-state='loading'] { color: var(--color-accent); }
+.summary-slot[data-state='success'] .understanding-heading strong { color: var(--color-accent); }
+.question-view { max-width: 850px; margin: 0 auto; color: var(--color-ink); }
+.question-view h1 { font-size: clamp(26px,3vw,36px); line-height: 1.25; overflow-wrap: anywhere; }
+.question-view h2 { font-size: 20px; line-height: 1.5; margin: var(--space-xs) 0 var(--space-md); white-space: pre-wrap; overflow-wrap: anywhere; }
+.question-view p, .question-view pre, .question-view blockquote { overflow-wrap: anywhere; }
+.question-form { margin: var(--space-lg) 0; }
+.question-form label { display: block; margin-bottom: var(--space-xs); font-weight: 600; }
+.question-form textarea { display: block; resize: vertical; width: 100%; min-height: 100px; max-height: 40vh; border: 1px solid var(--color-rule); border-radius: var(--radius-control); padding: var(--space-sm); font: var(--text-body)/1.65 var(--font-body); background: var(--color-panel); color: var(--color-ink); }
+.question-form textarea::placeholder { color: var(--color-muted); }
+.question-form .understanding-actions { justify-content: flex-end; }
+#question-status { min-height: 1.6em; }
+#question-status[data-state='error'] { color: var(--color-danger); }
+#question-status[data-state='success'] { color: var(--color-accent); }
+.answer-section { border-top: 1px solid var(--color-rule); padding-top: var(--space-md); }
+.question-view pre { font: 15px/1.85 var(--font-body); white-space: pre-wrap; color: var(--color-ink); }
+.answer-citations { list-style: none; padding: 0; }
+.answer-citations li { margin: var(--space-md) 0; }
+.answer-citations blockquote { margin: var(--space-xs) 0 0; padding-left: var(--space-sm); border-left: 2px solid var(--color-rule); color: var(--color-muted); font-size: var(--text-body); line-height: 1.7; white-space: pre-wrap; }
+.question-evidence { margin-top: var(--space-lg); border-top: 1px solid var(--color-rule); padding-top: var(--space-md); }
+.question-evidence summary { cursor: pointer; color: var(--color-accent); }
+.question-evidence pre { max-height: 50vh; overflow: auto; padding: var(--space-sm); border: 1px solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-panel); color: var(--color-ink); }
+.question-evidence mark { background: var(--color-tint); color: var(--color-accent); outline: 2px solid var(--color-focus); }
+@media (hover: hover) { .understanding button:not(:disabled):hover, .understanding button.is-hover, .understanding textarea:hover { background: var(--color-tint); color: var(--color-ink); } }
+@media (prefers-reduced-motion: no-preference) { .understanding button { transition: background-color var(--dur-short) var(--ease-out); } }
+@media (prefers-reduced-motion: reduce) { .understanding button { transition: none; } }
+@media (pointer: coarse) { .understanding button, .understanding summary { min-height: 44px; } }
+@media (max-width: 540px) { .summary-slot { padding: var(--space-sm); } .question-form { margin: var(--space-md) 0; } }
+@media (max-width: 500px) { .toolbar:has(#ask-page:not([hidden])) .omnibox { min-width: 0; } #ask-page { flex-shrink: 0; white-space: nowrap; } }

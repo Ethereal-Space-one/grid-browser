@@ -151,9 +151,15 @@ app.whenReady().then(async () => {
     assert.equal(await ui('document.querySelector("#busy").classList.contains("hidden")'), true);
     report.push('visible-cancel-stops-current-request');
 
-    const before = (await state()).revision;
+    // Storage/layout can advance the global revision independently of a rejected request.
+    const priorState = await state();
+    const priorCalls = requests.length;
     await assert.rejects(ui('window.grid.submit("bad",{scene:"living",contextual:"yes"})'));
-    assert.equal((await state()).revision, before);
+    const rejectedState = await state();
+    assert.equal(requests.length, priorCalls, 'Malformed input must not call the search provider');
+    for (const key of ['mode', 'entryId', 'pending', 'path', 'search', 'issue']) {
+      assert.deepEqual(rejectedState[key], priorState[key], 'Malformed input must not mutate ' + key);
+    }
     failNext = true;
     await assert.rejects(ui('window.grid.submit("格式错误")'));
     assert.equal((await state()).search.query, '新问题');

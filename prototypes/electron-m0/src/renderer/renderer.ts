@@ -165,15 +165,17 @@ function addResult(hit: SearchHit, index: number): void {
   actions.className = 'result-actions';
   const open = document.createElement('button');
   open.type = 'button';
-  open.textContent = '打开原页 ↗';
+  open.textContent = '打开网站原页 ↗';
+  open.title = '打开网站当前内容，不是引用快照';
   open.addEventListener('click', () => { void work(async () => { const owner = renderedState?.ownerId; await savePresentation(); await grid.open(hit.url, owner); }); });
   const read = document.createElement('button');
   read.type = 'button';
-  read.textContent = '干净正文';
+  read.textContent = '获取引用快照';
+  read.title = '重新获取公开正文，形成带取得时间的固定文本';
   read.addEventListener('click', () => { void work(async () => { const owner = renderedState?.ownerId; await savePresentation(); await grid.read(hit.url, owner); }); });
   const newTab = document.createElement('button'); newTab.type = 'button'; newTab.textContent = '新探索打开';
   newTab.addEventListener('click', () => { void work(async () => { await savePresentation(); await grid.tabNew(hit.url); }); });
-  const more=document.createElement('details');more.className='result-more';const moreLabel=document.createElement('summary');moreLabel.textContent='更多';more.append(moreLabel,read,newTab,comparisons.resultControl(index, renderedState!.search!.id, hit.title, hit.url));actions.append(open,more);
+  const more=document.createElement('details');more.className='result-more';const moreLabel=document.createElement('summary');moreLabel.textContent='更多';more.append(moreLabel,read,newTab);actions.append(open,more,comparisons.resultControl(index, renderedState!.search!.id, hit.title, hit.url));
   card.append(title, url, snippet, actions);
   list.append(card);
 }
@@ -310,13 +312,15 @@ function renderState(state: State): void {
     document.querySelector('#search-context')!.textContent = state.pending ? '正在搜索；你可以修改问题或取消请求。'
       : state.path.notice || '尚无结果。可以重新搜索或返回首页。';
   }
+  const readingVersion = state.reading ?? state.path.nodes.find(node => node.id === state.entryId)?.readingScope;
+  document.querySelector('#reading-version')!.textContent = readingVersion ? `引用快照 · 取得于 ${new Date(readingVersion.fetchedAt).toLocaleString('zh-CN')} · 固定文本，非网站当前内容` : '引用快照的取得时间不可用；尚未重新获取。';
   document.querySelector<HTMLElement>('#refetch-reading')!.hidden = state.mode !== 'reading' || Boolean(state.reading && !state.reading.released) || Boolean(state.pending);
   document.querySelector<HTMLButtonElement>('#comparison-reading')!.disabled = !state.reading || Boolean(state.reading.released || state.pending);
   if (state.mode === 'reading' && (!state.reading || state.reading.released)) {
     readingId = ''; readingUrl = state.value;
     document.querySelector('#reading-title')!.textContent = state.path.nodes.find(node => node.id === state.entryId)?.label || '已访问的正文';
     document.querySelector('#reading-source')!.textContent = state.value;
-    document.querySelector('#reading-content')!.textContent = state.reading?.released ? `正文全文未保存；路径、回答和笔记仍可回看。此版取得于 ${new Date(state.reading.fetchedAt).toLocaleString('zh-CN')}。点击重新获取会创建新步骤，内容可能变化。` : '正文已从内存释放；路径和位置仍保留。可以打开真实原页继续阅读。';
+    document.querySelector('#reading-content')!.textContent = state.reading?.released ? `正文全文未保存；路径、回答和笔记仍可回看。此版取得于 ${new Date(state.reading.fetchedAt).toLocaleString('zh-CN')}。点击重新获取会创建新步骤，内容可能变化。` : '正文已从内存释放；路径和位置仍保留。可以打开网站原页查看当前内容。';
     document.querySelector('#extraction-content')!.textContent = '';
   }
   if (state.reading && !state.reading.released && state.reading.id !== readingId) {
@@ -332,10 +336,10 @@ function renderState(state: State): void {
   }
   document.querySelector('#extraction-label')!.textContent = state.pending?.kind === 'extraction'
     ? '正在提取，原文可继续阅读…'
-    : state.issue?.kind === 'extraction' && state.mode === 'reading' ? '提取失败，可继续阅读下方原文或打开原页。'
+    : state.issue?.kind === 'extraction' && state.mode === 'reading' ? '提取失败，可继续阅读下方引用快照或打开网站原页。'
     : state.extraction && state.extraction.readingId === readingId ? `${sceneInfo[state.extraction.scene].label}场景 · AI 提取，未经核对${state.extraction.truncated ? ' · 仅依据正文前 16000 字符' : ''}` : '';
   document.querySelector('#extract-notice')!.textContent = state.mode === 'reading' && (!state.reading || state.reading.released)
-    ? '正文已从内存释放，当前无法提取；可以打开真实原页继续阅读。'
+    ? '正文已从内存释放，当前无法提取；可以打开网站原页查看当前内容。'
     : '点击后将公开网页正文（最多 16000 字符）发送给 DeepSeek 模型，产生额外调用。提取不会替换原文。';
   document.querySelector<HTMLButtonElement>('#extract-scene')!.disabled = Boolean(state.pending) || !readingId;
   busy.classList.toggle('hidden', !state.pending && !state.path.notice);

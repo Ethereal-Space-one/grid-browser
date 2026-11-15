@@ -45,7 +45,7 @@ namespace ReadingShell {
       el('page-summary').hidden=!visible;
       const summary=s.summary?.searchId===`page:${s.entryId}`?s.summary:undefined;
       el('page-summary-text').textContent=summary?.text||'';
-      el('page-summary-status').textContent=s.pending?.kind==='summary'?'正在整理公开正文…':s.issue?.kind==='summary'?s.issue.message:summary?'AI 总结 · 未核对原文'+(summary.pageSource?' · '+new Date(summary.pageSource.fetchedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})+' 获取':''):'准备获取公开正文…';
+      el('page-summary-status').textContent=s.pending?.kind==='summary'?'正在整理公开正文…':s.issue?.kind==='summary'?s.issue.message:summary?'AI 总结 · 未核对原文'+(summary.pageSource?' · Fetch 来源取得于 '+new Date(summary.pageSource.fetchedAt).toLocaleString('zh-CN'):' · Fetch 来源取得时间不可用'):'准备获取公开正文…';
       el('page-summary').setAttribute('aria-busy',String(s.pending?.kind==='summary'));
       el('page-summary-stop').hidden=s.pending?.kind!=='summary';
       const citations=el('page-summary-citations');citations.replaceChildren();

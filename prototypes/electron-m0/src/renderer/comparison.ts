@@ -11,7 +11,24 @@ namespace SourceComparison {
     private recordKey = '';
     private entryKey = '';
     private focusOnStart?: string;
+    // UI-only opt-in. Host-owned selections survive leaving this mode or reading a page.
+    private selectionView = '';
     constructor(private hooks: { state(): State | undefined; grid: Api; save(): Promise<boolean>; work(action: () => Promise<unknown>): unknown }) {
+      el('comparison-select-mode').addEventListener('click', () => {
+        const s = hooks.state(); if (!s || s.mode !== 'results' || !s.search?.results.length) return;
+        this.selectionView = this.picking(s) ? '' : `${s.ownerId}:${s.search.id}`;
+        this.render(s);
+      });
+      el('results').addEventListener('keydown', event => {
+        const s = hooks.state();
+        if (!s || !this.picking(s) || event.key !== 'Escape' || event.defaultPrevented || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+        event.preventDefault(); event.stopPropagation();
+        // First close an inner disclosure; another Escape exits selection, never removes it.
+        const disclosure = event.target instanceof Element ? event.target.closest<HTMLDetailsElement>('details[open]') : null;
+        if (disclosure) { disclosure.open = false; disclosure.querySelector('summary')?.focus({ preventScroll: true }); return; }
+        this.selectionView = ''; this.render(s);
+        el('comparison-select-mode').focus({ preventScroll: true });
+      });
       el('comparison-start').addEventListener('click', () => {
         const s = hooks.state(); if (!s) return;
         this.focusOnStart = s.ownerId;
@@ -41,12 +58,20 @@ namespace SourceComparison {
       });
     }
     resultControl(index: number, searchId: string, title: string, url: string): HTMLElement {
-      const label = document.createElement('label'); label.className = 'comparison-pick';
+      const label = document.createElement('label'); label.className = 'comparison-pick'; label.hidden = true;
       const box = document.createElement('input'); box.type = 'checkbox'; box.dataset.comparisonUrl = address(url);
+      box.id = `comparison-result-${index}`;
       box.setAttribute('aria-label', `选择对照来源：${title}`);
-      box.addEventListener('change', () => { box.checked = !box.checked; this.toggle({ kind: 'result', searchId, index }, url); });
+      box.setAttribute('aria-describedby', 'comparison-select-help');
+      box.addEventListener('change', () => {
+        box.checked = !box.checked;
+        const s = this.hooks.state();
+        if (!s || !this.picking(s) || s.search?.id !== searchId) return;
+        this.toggle({ kind: 'result', searchId, index }, url);
+      });
       label.append(box, text('span', '选作对照')); return label;
     }
+    private picking(s: State): boolean { return s.mode === 'results' && Boolean(s.search && this.selectionView === `${s.ownerId}:${s.search.id}`); }
     private toggle(selector: Selector, url: string) {
       const s = this.hooks.state(); if (!s) return;
       const selected = s.comparisonSelection.find(item => address(item.url) === address(url));
@@ -57,6 +82,13 @@ namespace SourceComparison {
       button.addEventListener('click', () => this.hooks.work(action)); return button;
     }
     render(s: State) {
+      // A new result list or tab starts in ordinary reading mode. Do not clear the selection.
+      if (this.selectionView && (s.mode !== 'results' || this.selectionView !== `${s.ownerId}:${s.search?.id}`)) this.selectionView = '';
+      const picking = this.picking(s);
+      el('comparison-result-tools').hidden = s.mode !== 'results' || !s.search?.results.length;
+      el('comparison-select-mode').textContent = picking ? '退出选资料' : '选资料对照';
+      el('comparison-select-mode').setAttribute('aria-pressed', String(picking));
+      el('comparison-select-help').hidden = !picking;
       const tray = el('comparison-tray');
       tray.hidden = !s.comparisonSelection.length || ['comparison', 'judgment'].includes(s.mode);
       el('comparison-count').textContent = `${s.comparisonSelection.length} / 2 份来源${s.comparisonSelection.length === 1 ? ' · 再选一份' : ''}`;
@@ -65,8 +97,11 @@ namespace SourceComparison {
       el('comparison-send-note').hidden = s.comparisonSelection.length !== 2;
       const selectedAddresses = new Set(s.comparisonSelection.map(item => address(item.url)));
       for (const box of document.querySelectorAll<HTMLInputElement>('[data-comparison-url]')) {
+        const label = box.closest<HTMLElement>('.comparison-pick')!; label.hidden = !picking;
         box.checked = selectedAddresses.has(box.dataset.comparisonUrl!);
         box.disabled = Boolean(s.pending) || !box.checked && s.comparisonSelection.length === 2;
+        const index = s.comparisonSelection.findIndex(item => address(item.url) === box.dataset.comparisonUrl);
+        label.querySelector('span')!.textContent = index < 0 ? '选作对照' : `已选为 ${index ? 'B' : 'A'}`;
       }
       const updatePick = (id: string, url: string | undefined) => {
         const button = el<HTMLButtonElement>(id); const picked = Boolean(url && selectedAddresses.has(address(url)));
@@ -88,6 +123,7 @@ namespace SourceComparison {
             if (!this.hooks.state()?.comparisonSelection.length) el('input').focus({ preventScroll: true });
             else el('comparison-selection').querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
           });
+          remove.disabled = Boolean(s.pending);
           remove.setAttribute('aria-label', `移除来源 ${index ? 'B' : 'A'}：${item.title}`); row.append(label, remove); list.append(row);
         }
         if (active?.startsWith('comparison-remove-')) document.getElementById(active)?.focus({ preventScroll: true });
@@ -128,14 +164,15 @@ namespace SourceComparison {
         const letter = index ? 'B' : 'A'; const card = document.createElement('article'); card.className = 'comparison-source'; card.setAttribute('aria-label', `来源 ${letter}`);
         const title = text('h2', item.title); title.title = item.title;
         card.append(text('div', `来源 ${letter}`, 'eyebrow'), title, text('p', item.url, 'comparison-url'));
-        const info = item.source ? `${new Date(item.source.fetchedAt).toLocaleString('zh-CN')} · ${item.source.released ? '正文未落盘；下方保留上次引文' : item.source.truncated ? '仅前 16000 字符' : '本次取得的文本'}`
+        const info = item.source ? `引用快照 · 取得于 ${new Date(item.source.fetchedAt).toLocaleString('zh-CN')} · ${item.source.released ? '快照正文未保存；下方保留引文' : item.source.truncated ? '固定文本，仅前 16000 字符' : '固定文本，非网站当前内容'}`
           : item.issue || (pending ? '正在获取公开正文…' : '尚未取得公开正文');
         card.append(text('p', info, item.issue ? 'comparison-source-issue' : 'comparison-caption'));
         const actions = document.createElement('div'); actions.className = 'understanding-actions';
-        const open = this.button('打开原页 ↗', `comparison-open-${index}`, async () => {
+        const open = this.button('打开网站原页 ↗', `comparison-open-${index}`, async () => {
           if (this.hooks.state()?.ownerId !== s.ownerId || this.hooks.state()?.entryId !== s.entryId) return;
           await this.hooks.save(); await this.hooks.grid.open(item.url, s.ownerId);
         });
+        open.title = '打开网站当前内容，不是引用快照';
         const origin = this.button('返回选择位置', `comparison-origin-${index}`, async () => {
           if (this.hooks.state()?.ownerId !== s.ownerId || this.hooks.state()?.entryId !== s.entryId) return;
           await this.hooks.save(); await this.hooks.grid.jump(item.originEntryId, s.ownerId, s.entryId);
@@ -143,8 +180,8 @@ namespace SourceComparison {
         origin.disabled = !s.path.nodes.some(node => node.id === item.originEntryId); actions.append(open, origin); card.append(actions);
         if (item.source && !item.source.released) {
           const details = document.createElement('details'); details.className = 'question-evidence'; details.id = `comparison-evidence-${index}`;
-          const summary = text('summary', `查看来源 ${letter} 的这版正文`); const body = text('pre', item.source.text);
-          body.id = `comparison-text-${index}`; body.tabIndex = 0; body.setAttribute('aria-label', `来源 ${letter} 本次模型正文`);
+          const summary = text('summary', '查看引用快照'); const body = text('pre', item.source.text);
+          body.id = `comparison-text-${index}`; body.tabIndex = 0; summary.setAttribute('aria-label', `查看来源 ${letter} 的引用快照`); body.setAttribute('aria-label', `来源 ${letter} 的引用快照`);
           const back = this.button('回到刚才的对照项', `comparison-evidence-back-${index}`, async () => {
             const target = back.dataset.quoteTarget && document.getElementById(back.dataset.quoteTarget);
             if (!target) return;
@@ -166,7 +203,7 @@ namespace SourceComparison {
           for (const [quoteIndex, quote] of side.quotes.entries()) {
             const source = record!.sources[index].source; const offset = source && quote ? source.text.indexOf(quote) : -1;
             const ambiguous = offset >= 0 && source!.text.indexOf(quote, offset + 1) >= 0;
-            const label = ambiguous ? '多处匹配 · 仅查看正文' : offset < 0 ? '未匹配 · 查看正文核对' : '定位这版依据';
+            const label = ambiguous ? '多处匹配 · 查看引用快照' : offset < 0 ? '未匹配 · 查看引用快照' : '定位快照引文';
             const button = this.button(label, `comparison-quote-${rowIndex}-${index}-${quoteIndex}`, async () => {
               if (!source || source.released) return;
               const body = el(`comparison-text-${index}`); const details = el<HTMLDetailsElement>(`comparison-evidence-${index}`);
@@ -180,8 +217,11 @@ namespace SourceComparison {
               body.replaceChildren(document.createTextNode(source.text.slice(0, offset)), mark, document.createTextNode(source.text.slice(offset + quote.length)));
               mark.focus({ preventScroll: true }); mark.scrollIntoView({ block: 'center', behavior: 'instant' });
             });
-            if (!record!.sources[index].source || record!.sources[index].source!.released) { button.disabled = true; button.textContent = '完整正文未保存 · 上次引文'; }
-            column.append(text('blockquote', quote), button);
+            if (!source || source.released) { button.disabled = true; button.textContent = '完整快照未保存 · 无法定位'; }
+            const version = source ? `引用快照 · 取得于 ${new Date(source.fetchedAt).toLocaleString('zh-CN')}` : '引用快照的取得时间不可用';
+            const note = !source || source.released ? ' · 这里只保留引文，无法定位完整快照'
+              : ambiguous || offset < 0 ? ` · ${ambiguous ? '多处匹配' : '未匹配'}，未定位；仅展开固定文本供核对` : '';
+            column.append(text('blockquote', quote), text('p', version + note, 'comparison-caption'), button);
           }
           pair.append(column);
         }

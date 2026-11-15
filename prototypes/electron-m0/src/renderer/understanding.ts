@@ -63,11 +63,14 @@ namespace Understanding {
         const links = element('summary-sources'); links.replaceChildren();
         for (const citation of summary?.citations || []) {
           const button = document.createElement('button'); button.type = 'button';
-          button.textContent = `来源 ${citation.source}`; button.title = `${citation.title}：${citation.quote}`;
+          button.textContent = `来源 ${citation.source} · 打开网站原页`; button.title = `${citation.title}：打开网站当前内容。摘要引用：${citation.quote}（来自搜索摘要，不是 Fetch 正文或完整引用快照）`;
           button.addEventListener('click', () => this.hooks.work(async () => {
             if (this.hooks.state()?.entryId !== state.entryId || this.hooks.state()?.ownerId !== state.ownerId) return;
             await this.hooks.save(); await this.hooks.grid.open(citation.url, state.ownerId);
-          })); links.append(button);
+          }));
+          const quote = document.createElement('blockquote'); quote.textContent = citation.quote;
+          const item = document.createElement('div'); item.className = 'summary-citation';
+          item.append(quote, button); links.append(item);
         }
       }
       element('ask-page').hidden = state.mode !== 'page';
@@ -103,7 +106,7 @@ namespace Understanding {
       element('answer-text').textContent = q?.answer?.text || '';
       element('answer-time').textContent = q?.answeredAt ? `AI 回答 · ${new Date(q.answeredAt).toLocaleString('zh-CN')} · 未核对` : '';
       element('answer-section').hidden = !q?.question;
-      element('source-version').textContent = q?.source ? `Fetch 正文 · ${new Date(q.source.fetchedAt).toLocaleString('zh-CN')} · ${q.source.truncated ? '仅前 16000 字符' : '本次取得的文本'} · ${q.source.released ? '正文未落盘，现显示上次回答' : '非原页实时内容'}` : '尚未获取公开正文';
+      element('source-version').textContent = q?.source ? `引用快照 · 取得于 ${new Date(q.source.fetchedAt).toLocaleString('zh-CN')} · ${q.source.truncated ? '固定文本，仅前 16000 字符' : '固定文本'} · ${q.source.released ? '快照正文未保存，现显示上次回答' : '非网站当前内容'}` : '尚未获取公开正文';
       const details = element<HTMLDetailsElement>('question-evidence'); details.hidden = !q?.source || Boolean(q.source.released);
       element('question-source-text').textContent = q?.source?.text || '';
       const evidence = element('answer-citations'); evidence.replaceChildren();
@@ -112,9 +115,14 @@ namespace Understanding {
         const source = q?.source; const offset = source && citation.quote ? source.text.indexOf(citation.quote) : -1;
         // A saved quote has no occurrence selector. Identical copies cannot identify the intended one.
         const ambiguous = offset >= 0 && source!.text.indexOf(citation.quote, offset + 1) >= 0;
-        button.textContent = ambiguous ? '多处匹配 · 仅查看正文' : offset < 0 ? '未匹配 · 查看正文核对' : `依据 ${index + 1} · 查看这版正文`;
+        button.textContent = ambiguous ? '多处匹配 · 查看引用快照' : offset < 0 ? '未匹配 · 查看引用快照' : '定位快照引文';
         const quote = document.createElement('blockquote'); quote.textContent = citation.quote;
-        button.disabled = !source || Boolean(source.released); if (!source || source.released) button.textContent = '完整正文未保存 · 上次引文';
+        button.disabled = !source || Boolean(source.released); if (!source || source.released) button.textContent = '完整快照未保存 · 无法定位';
+        button.setAttribute('aria-label', `依据 ${index + 1} · ${button.textContent}`);
+        const version = document.createElement('p'); version.className = 'question-caption';
+        version.textContent = source ? `引用快照 · 取得于 ${new Date(source.fetchedAt).toLocaleString('zh-CN')}` : '引用快照的取得时间不可用';
+        if (!source || source.released) version.textContent += ' · 这里只保留引文，无法定位完整快照';
+        else if (ambiguous || offset < 0) version.textContent += ` · ${ambiguous ? '多处匹配' : '未匹配'}，未定位；仅展开固定文本供核对`;
         button.addEventListener('click', () => {
           if (!source || source.released) return;
           details.open = true; const text = element('question-source-text');
@@ -123,7 +131,7 @@ namespace Understanding {
           const mark = document.createElement('mark'); mark.textContent = citation.quote; mark.tabIndex = -1;
           text.replaceChildren(document.createTextNode(source.text.slice(0, offset)), mark, document.createTextNode(source.text.slice(offset + citation.quote.length)));
           mark.focus({ preventScroll: true }); mark.scrollIntoView({ block: 'center', behavior: 'instant' });
-        }); li.append(button, quote); evidence.append(li);
+        }); li.append(button, version, quote); evidence.append(li);
       }
     }
   }

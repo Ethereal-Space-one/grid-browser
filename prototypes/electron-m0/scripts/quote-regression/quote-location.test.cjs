@@ -63,7 +63,7 @@ for (const ui of ['legacy']) for (const surface of ['question', 'comparison']) {
         assert.equal(marks.length, 0, 'no guessed highlight');
         assert.equal(f.w.document.activeElement, b, 'nonunique/missing does not move focus');
         assert.equal(f.scrolls.length, 0, 'nonunique/missing does not scroll to a guessed position');
-        assert.match(b.textContent, kind === 'ambiguous' ? /多处匹配.*仅查看正文/ : /未匹配/);
+        assert.match(b.textContent, kind === 'ambiguous' ? /多处匹配.*查看引用快照/ : /未匹配/);
       }
       assert.equal(f.w.document.querySelectorAll(`#${surface === 'question' ? 'answer-citations' : 'comparison-rows'} blockquote`)[0].textContent, quote, 'saved quote stays readable');
       assert.equal(f.w.document.querySelectorAll('#question-source-text img,#comparison-text-0 img').length, 0, 'untrusted quote remains text');

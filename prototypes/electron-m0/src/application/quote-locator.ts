@@ -10,7 +10,7 @@ export type QuoteBinding = Readonly<{
 }>;
 export type QuoteDomResult = 'prepared' | 'found' | 'ambiguous' | 'missing' | 'unsupported' | 'uncertain';
 const messages: Record<QuoteLocatorStatus, string> = {
-  ready: '原页已打开。可再点一次，在当前主文档内逐字查找；不会读取表单或发送给模型。',
+  ready: '网站原页已打开，这是网站当前内容，不是引用快照。点击后仅尝试一次逐字定位，不会自动定位、读取表单或发送给模型。',
   locating: '正在本机核对当前原页；仅唯一、可测量的逐字文本才请求滚动。',
   found: '已请求滚动到唯一逐字文本所在处。没有改写网页或验证来源真实性；请在原页目视核对。',
   ambiguous: '原页有重复逐字文本，未选择位置，也未滚动。',

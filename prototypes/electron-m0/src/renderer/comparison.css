@@ -6,6 +6,11 @@
 .comparison-pick input { accent-color: var(--color-accent); width: 16px; height: 16px; }
 .comparison-pick:has(input:checked) { color: var(--color-accent); }
 .comparison-pick:has(input:disabled) { cursor: not-allowed; opacity: .55; }
+.comparison-pick:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 3px; border-radius: var(--radius-control); }
+.comparison-result-tools { margin-top: var(--space-sm); }
+.comparison-result-tools button { min-height: 36px; font-size: var(--text-caption); padding: var(--space-xs) var(--space-sm); color: var(--color-accent); background: var(--color-tint); border: 1px solid var(--color-rule); border-radius: var(--radius-control); }
+.comparison-result-tools button[aria-pressed='true'] { border-color: var(--color-accent); }
+.comparison-result-tools p { margin: var(--space-xs) 0 0; }
 .comparison-tray { flex-shrink: 0; padding: var(--space-xs) var(--space-md); border-bottom: 1px solid var(--color-rule); background: var(--color-panel); color: var(--color-ink); }
 .comparison-tray-top { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-xs); }
 .comparison-count { font-size: var(--text-caption); color: var(--color-muted); white-space: nowrap; }
@@ -44,6 +49,6 @@
 #comparison-status[data-state='error'] { color: var(--color-danger); }
 .comparison-tray button, .comparison-view button { white-space: nowrap; }
 @media (max-width: 640px) { .comparison-sources, .comparison-pair { grid-template-columns: minmax(0,1fr); } .comparison-source { padding: var(--space-sm); } .comparison-tray { padding-inline: var(--space-sm); } .comparison-count { display: none; } }
-@media (pointer: coarse) { .comparison-pick, .comparison-selection button { min-height: 44px; } }
+@media (pointer: coarse) { .comparison-pick, .comparison-selection button, .comparison-result-tools button { min-height: 44px; } }
 /* Keep a reachable map list when the temporary selection tray shares the auxiliary area. */
 #aux-panels:has(.comparison-tray:not([hidden])) .path-map { min-height: min(110px,var(--aux-budget)); }

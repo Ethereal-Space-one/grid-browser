@@ -31,6 +31,7 @@
     "test:e2e:storage": "npm run build && node scripts/e2e-storage.cjs",
     "test:package:flow": "node scripts/smoke-package-flow.cjs",
     "test:e2e:reading-flow": "npm run build && electron scripts/e2e-reading-flow.cjs",
+    "test:p0:ux": "npm run build && node --test scripts/test-p0-source-ux.cjs",
     "test:quote:setup": "npm ci --prefix scripts/quote-regression/deps",
     "test:quote:dom": "npm run build && node --test scripts/quote-regression/quote-location.test.cjs && node scripts/quote-regression/locator-ui-dom.cjs && node --test scripts/test-quote-locator-dom.cjs",
     "test:e2e:quotes": "npm run build && electron scripts/e2e-quote-locator.cjs"

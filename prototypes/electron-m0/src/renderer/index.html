@@ -40,10 +40,10 @@
       <button id="new-window" type="button" title="新建窗口 (⌘/Ctrl+N)">新窗口</button>
     </nav>
 
-    <div id="page-tools" hidden><span id="page-scene"></span><button id="summarize-page" type="button">总结这页</button><details id="page-more"><summary>更多</summary><div><button id="page-clean" type="button">干净正文</button><button id="page-map" type="button">查看地图与活动</button></div></details></div>
-    <section id="page-summary" aria-label="网页总结" hidden><div class="page-summary-heading"><strong>这页说了什么</strong><span id="page-summary-status" role="status"></span><button id="page-summary-stop" type="button" hidden>停止</button><button id="page-summary-close" type="button" aria-label="收起网页总结">×</button></div><p class="page-summary-scope">主动获取公开正文，最多 16000 字符发给 DeepSeek；不含登录态或实时动态内容。</p><div class="page-summary-scroll"><p id="page-summary-text"></p><details><summary>查看依据</summary><div id="page-summary-citations"></div></details></div></section>
-    <section id="quote-locator-bar" aria-label="原页引文定位" hidden>
-      <div class="quote-locator-context"><strong>原页引文定位</strong><span id="quote-locator-source"></span></div>
+    <div id="page-tools" hidden><span id="page-scene"></span><button id="summarize-page" type="button">总结这页</button><details id="page-more"><summary>更多</summary><div><button id="page-clean" type="button" title="重新获取公开正文，形成带取得时间的固定文本">获取引用快照</button><button id="page-map" type="button">查看地图与活动</button></div></details></div>
+    <section id="page-summary" aria-label="网页总结" hidden><div class="page-summary-heading"><strong>这页说了什么</strong><span id="page-summary-status" role="status"></span><button id="page-summary-stop" type="button" hidden>停止</button><button id="page-summary-close" type="button" aria-label="收起网页总结">×</button></div><p class="page-summary-scope">主动获取公开正文，最多 16000 字符发给 DeepSeek；不含登录态或实时动态内容。</p><div class="page-summary-scroll"><p id="page-summary-text"></p><details><summary>查看引用摘录</summary><p>这是取得时固定的引用摘录，不含完整正文快照，也不是网站当前内容。</p><div id="page-summary-citations"></div></details></div></section>
+    <section id="quote-locator-bar" aria-label="网站原页引文定位" hidden>
+      <div class="quote-locator-context"><strong>网站原页引文定位</strong><span id="quote-locator-source"></span></div>
       <p id="quote-locator-message"></p>
       <div id="quote-locator-controls" class="quote-locator-controls"><button id="quote-locate" aria-describedby="quote-locator-message" class="grid-control" data-variant="primary" data-size="compact" type="button">定位这段引文</button><button id="quote-dismiss" class="grid-control" data-size="compact" type="button" aria-label="关闭引文定位">关闭</button></div>
     </section>
@@ -131,27 +131,32 @@
         <section id="summary-slot" class="summary-slot understanding" aria-label="搜索短总结" hidden>
           <div class="understanding-heading"><strong>短总结</strong><button id="summary-cancel" type="button" hidden>停止</button><button id="summarize" type="button">生成短总结</button></div>
           <p>点击后将前 10 条搜索摘要发送给 DeepSeek，最多三句；未核对原文。</p>
-          <div class="summary-scroll"><p id="summary-label" role="status"></p><p id="summary-text"></p><div id="summary-sources" class="summary-sources"></div></div>
+          <div class="summary-scroll"><p id="summary-label" role="status"></p><p id="summary-text"></p><details><summary>查看摘要引用</summary><p>引文来自搜索摘要，不是 Fetch 正文或完整引用快照。打开网站原页将查看网站当前内容。</p><div id="summary-sources" class="summary-sources"></div></details></div>
         </section>
+        <div id="comparison-result-tools" class="comparison-result-tools" hidden>
+          <button id="comparison-select-mode" type="button" aria-pressed="false" aria-controls="result-list" aria-describedby="comparison-select-help">选资料对照</button>
+          <p id="comparison-select-help" class="comparison-caption" hidden>逐条勾选两份资料，按选择顺序记为 A / B。选资料不发请求；退出后保留已选资料，点击「对照这两份」才获取正文并对照。</p>
+        </div>
         <div id="result-list" class="result-list"></div>
       </section>
 
       <section id="reading" class="reading hidden" aria-labelledby="reading-title">
         <div class="reading-top">
-          <div class="eyebrow">CLEAN READING / FETCH</div>
-          <button id="refetch-reading" type="button" hidden>重新获取正文</button><button id="comparison-reading" type="button" aria-pressed="false">选作对照</button>
+          <div class="eyebrow">引用快照 / FETCH</div>
+          <button id="refetch-reading" type="button" hidden>重新获取引用快照</button><button id="comparison-reading" type="button" aria-pressed="false">选作对照</button>
           <button id="ask-reading" type="button">问这页</button>
-          <button id="open-reading-source" type="button">打开真实原页 ↗</button>
+          <button id="open-reading-source" type="button" title="打开网站当前内容，不是这份固定文本">打开网站原页 ↗</button>
         </div>
         <h1 id="reading-title"></h1>
         <p id="reading-source" class="subline"></p>
-        <p class="reading-warning">此内容由 Fetch 获取，可能不完整或过时；需要登录、操作或核实时请返回原页。</p>
+        <p id="reading-version" class="subline"></p>
+        <p class="reading-warning">引用快照是取得时固定的公开文本，可能不完整或过时，不是网站当前内容。需要登录、操作或核实时请打开网站原页。</p>
         <section class="scene-extraction"><button id="extract-scene" type="button">按当前场景提取重点</button><p id="extract-notice">点击后将公开网页正文（最多 16000 字符）发送给 DeepSeek 模型，产生额外调用。原文始终保留。</p><p id="extraction-label"></p><pre id="extraction-content" role="status"></pre></section>
         <pre id="reading-content"></pre>
       </section>
 
       <section id="question-view" class="question-view understanding hidden" aria-labelledby="question-title">
-        <div class="understanding-heading"><span class="eyebrow">围绕这页</span><div class="understanding-actions"><button id="judgment-from-question" type="button" hidden>记录我的判断</button><button id="comparison-question" type="button" aria-pressed="false" hidden>选作对照</button><button id="question-origin" type="button">返回来源位置</button><button id="question-open" type="button">打开原页 ↗</button></div></div>
+        <div class="understanding-heading"><span class="eyebrow">围绕这页</span><div class="understanding-actions"><button id="judgment-from-question" type="button" hidden>记录我的判断</button><button id="comparison-question" type="button" aria-pressed="false" hidden>选作对照</button><button id="question-origin" type="button">返回来源位置</button><button id="question-open" type="button" title="打开网站当前内容，不是引用快照">打开网站原页 ↗</button></div></div>
         <h1 id="question-title" tabindex="-1">问这页</h1><p id="question-url" class="subline"></p>
         <p id="source-version" class="question-caption"></p>
         <section id="answer-section" class="answer-section" hidden><h2 id="asked-question"></h2><p id="answer-time" class="question-caption"></p><pre id="answer-text"></pre><ol id="answer-citations" class="answer-citations" aria-label="回答依据"></ol></section>
@@ -160,12 +165,12 @@
           <p id="question-scope" class="question-caption"></p><p id="question-status" class="question-caption" role="status"></p>
           <div class="understanding-actions"><button id="question-cancel" type="button" hidden>停止回答</button><button id="question-submit" type="submit">提问</button></div>
         </form>
-        <details id="question-evidence" class="question-evidence" hidden><summary>查看本次提供给模型的正文</summary><pre id="question-source-text" tabindex="0" aria-label="本次模型正文"></pre></details>
+        <details id="question-evidence" class="question-evidence" hidden><summary>查看引用快照</summary><p class="question-caption">这是取得时固定、用于本次回答的公开文本；取得时间见上方，不是网站当前内容。</p><pre id="question-source-text" tabindex="0" aria-label="本次回答的引用快照"></pre></details>
       </section>
       <section id="comparison-view" class="comparison-view understanding hidden" aria-labelledby="comparison-title">
         <div class="understanding-heading comparison-heading"><div class="eyebrow">两份资料 · 逐项核对</div><div class="understanding-actions"><button id="judgment-from-comparison" type="button" hidden>记录我的判断</button><button id="comparison-cancel" type="button" hidden>停止对照</button><button id="comparison-retry" type="button">按相同正文重试</button></div></div><h1 id="comparison-title" tabindex="-1">来源对照</h1>
         <p id="comparison-topic"></p><p id="comparison-version" class="comparison-caption"></p>
-        <p class="comparison-caption">仅使用明确选择的公开正文片段。引文匹配不代表结论正确，原页内容可能已变化。</p>
+        <p class="comparison-caption">仅使用明确选择的引用快照：取得时固定的公开文本，取得时间分别列在来源下。引文匹配不代表结论正确；网站原页是当前内容，可能已变化。</p>
 
         <p id="comparison-status" class="comparison-caption" role="status"></p>
         <div id="comparison-sources" class="comparison-sources"></div>

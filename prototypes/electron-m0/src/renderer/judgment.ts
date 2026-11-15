@@ -131,11 +131,12 @@ namespace PersonalJudgment {
           if (draft) { const input = document.createElement('input'); input.type = 'checkbox'; input.value = c.id; input.id = `judgment-citation-${index}`; input.checked = j!.citationIds.includes(c.id); label.htmlFor = input.id; label.append(input); }
           const body = document.createElement('span'); const title = document.createElement('strong'); title.textContent = c.title;
           const quote = document.createElement('q'); quote.textContent = c.quote;
-          const version = document.createElement('span'); version.className = 'judgment-caption'; version.textContent = `${new Date(c.fetchedAt).toLocaleString('zh-CN')} · Fetch ${c.truncated ? '截取正文' : '正文'} · 非原页实时内容`;
+          const version = document.createElement('span'); version.className = 'judgment-caption'; version.textContent = `引用快照引文 · 取得于 ${new Date(c.fetchedAt).toLocaleString('zh-CN')} · ${c.truncated ? '截取的固定文本' : '固定文本'} · 非网站当前内容`;
           const address = document.createElement('span'); address.className = 'judgment-caption'; address.textContent = c.url;
           version.title = `正文版本 ${c.readingId}`;
           const open = document.createElement('button'); open.type = 'button'; open.className = 'grid-control judgment-open-citation'; open.dataset.citationId = c.id;
-          open.dataset.size = 'compact'; open.textContent = '打开原页'; open.setAttribute('aria-label', `打开原页：${c.title}`);
+          open.dataset.size = 'compact'; open.textContent = '打开网站原页'; open.setAttribute('aria-label', `打开网站原页：${c.title}`);
+          open.title = '打开网站当前内容；之后可主动定位一次引文，不会自动定位或改用引用快照';
           body.append(title, quote, version, address); label.append(body); row.append(label, open); fieldset.append(row);
         }
       }

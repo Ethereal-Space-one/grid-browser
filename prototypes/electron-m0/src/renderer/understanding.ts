@@ -109,11 +109,17 @@ namespace Understanding {
       const evidence = element('answer-citations'); evidence.replaceChildren();
       for (const [index, citation] of (q?.answer?.citations || []).entries()) {
         const li = document.createElement('li'); const button = document.createElement('button'); button.type = 'button';
-        button.textContent = `依据 ${index + 1} · 查看这版正文`; const quote = document.createElement('blockquote'); quote.textContent = citation.quote;
-        button.disabled = Boolean(q?.source?.released); if (q?.source?.released) button.textContent = '完整正文未保存 · 上次引文';
+        const source = q?.source; const offset = source && citation.quote ? source.text.indexOf(citation.quote) : -1;
+        // A saved quote has no occurrence selector. Identical copies cannot identify the intended one.
+        const ambiguous = offset >= 0 && source!.text.indexOf(citation.quote, offset + 1) >= 0;
+        button.textContent = ambiguous ? '多处匹配 · 仅查看正文' : offset < 0 ? '未匹配 · 查看正文核对' : `依据 ${index + 1} · 查看这版正文`;
+        const quote = document.createElement('blockquote'); quote.textContent = citation.quote;
+        button.disabled = !source || Boolean(source.released); if (!source || source.released) button.textContent = '完整正文未保存 · 上次引文';
         button.addEventListener('click', () => {
-          const source = q?.source; if (!source) return;
-          details.open = true; const text = element('question-source-text'); const offset = source.text.indexOf(citation.quote);
+          if (!source || source.released) return;
+          details.open = true; const text = element('question-source-text');
+          text.textContent = source.text;
+          if (offset < 0 || ambiguous) return;
           const mark = document.createElement('mark'); mark.textContent = citation.quote; mark.tabIndex = -1;
           text.replaceChildren(document.createTextNode(source.text.slice(0, offset)), mark, document.createTextNode(source.text.slice(offset + citation.quote.length)));
           mark.focus({ preventScroll: true }); mark.scrollIntoView({ block: 'center', behavior: 'instant' });

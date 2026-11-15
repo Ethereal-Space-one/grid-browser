@@ -21,6 +21,19 @@ namespace PersonalJudgment {
       for (const id of ['judgment-text', 'judgment-checks']) el(id).addEventListener('input', () => this.edit());
       el('judgment-references').addEventListener('change', () => this.edit());
       el('judgment-retry').addEventListener('click', () => this.edit());
+      // One delegated handler also serves the keyed Svelte citation list. The
+      // host, not the renderer's URL or quote text, resolves the citation ID.
+      el('judgment-references').addEventListener('click', event => {
+        const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('.judgment-open-citation') : null;
+        const s = hooks.state(); const citationId = button?.dataset.citationId;
+        if (!s || s.mode !== 'judgment' || !citationId) return;
+        hooks.work(async () => {
+          if (!await hooks.save()) return;
+          const current = hooks.state();
+          if (current?.ownerId !== s.ownerId || current.entryId !== s.entryId) return;
+          await hooks.grid.judgmentOpenCitation(citationId, s.ownerId, s.entryId);
+        });
+      });
       el('judgment-form').addEventListener('submit', event => {
         event.preventDefault(); const s = hooks.state(); if (!s?.judgment || this.saving) return;
         this.saving = true; this.status('正在保存本次版本…', 'loading');
@@ -113,6 +126,7 @@ namespace PersonalJudgment {
         const refs = draft ? j?.citations : j?.citations.filter(c => j.citationIds.includes(c.id));
         if (!refs?.length) { const p = document.createElement('p'); p.className = 'judgment-caption'; p.textContent = draft ? '这版模型输出没有可附上的原文引文。你仍可记录判断，或返回来源核对。' : '这个版本未附引文。'; fieldset.append(p); }
         for (const [index, c] of (refs ?? []).entries()) {
+          const row = document.createElement('div'); row.className = 'judgment-citation-entry';
           const label = document.createElement('label'); label.className = 'judgment-citation';
           if (draft) { const input = document.createElement('input'); input.type = 'checkbox'; input.value = c.id; input.id = `judgment-citation-${index}`; input.checked = j!.citationIds.includes(c.id); label.htmlFor = input.id; label.append(input); }
           const body = document.createElement('span'); const title = document.createElement('strong'); title.textContent = c.title;
@@ -120,7 +134,9 @@ namespace PersonalJudgment {
           const version = document.createElement('span'); version.className = 'judgment-caption'; version.textContent = `${new Date(c.fetchedAt).toLocaleString('zh-CN')} · Fetch ${c.truncated ? '截取正文' : '正文'} · 非原页实时内容`;
           const address = document.createElement('span'); address.className = 'judgment-caption'; address.textContent = c.url;
           version.title = `正文版本 ${c.readingId}`;
-          body.append(title, quote, version, address); label.append(body); fieldset.append(label);
+          const open = document.createElement('button'); open.type = 'button'; open.className = 'grid-control judgment-open-citation'; open.dataset.citationId = c.id;
+          open.dataset.size = 'compact'; open.textContent = '打开原页'; open.setAttribute('aria-label', `打开原页：${c.title}`);
+          body.append(title, quote, version, address); label.append(body); row.append(label, open); fieldset.append(row);
         }
       }
       el('judgment-boundary').textContent = s.storage.persistent ? '判断和草稿随路径保存在本机；提交状态可在本地记录中查看。个人文字不发送给模型。' : '非持久路径：任务不写入本地文件，关闭后无法恢复；网站登录状态仍共用。个人文字不发送给模型。';

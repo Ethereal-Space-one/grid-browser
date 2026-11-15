@@ -1,4 +1,6 @@
 import { FloatingMap } from './floating-map';
+import { QuoteLocator, judgmentCitation, sameQuoteBinding, type QuoteBinding, type QuoteDomResult } from '../application/quote-locator';
+import { QUOTE_LOCATOR_WORLD, quoteDomScript } from './quote-dom';
 import { TaskRepository } from '../storage/task-repository';
 import type { StoredTask, Workspace } from '../contracts/task-storage';
 import { BrowserWindow, WebContentsView, session, dialog } from 'electron';
@@ -21,7 +23,7 @@ type ActionReceipt = ReturnType<FormAction['exportReceipts']>[number];
 
 type PageOperation = {
   id: number; kind: 'open' | 'restore' | 'reload' | 'page'; nodeId: string; url: string;
-  method: NativeMethod; guardWrites: boolean; started: boolean; committed: boolean;
+  method: NativeMethod; guardWrites: boolean; started: boolean; committed: boolean; redirected: boolean;
   source?: NativePosition; visit?: NativeVisit; timer?: ReturnType<typeof setTimeout>;
   done: Promise<void>; settle: () => void;
 };
@@ -37,6 +39,9 @@ export class BrowserTab {
   mapDraft = '';
   mapDraftNode?: string;
   title = '';
+  readonly quoteLocator = new QuoteLocator(() => this.host.refresh());
+  private quoteOpening?: object;
+  private quoteToken?: { token: string; web: Electron.WebContents };
   private epoch = 0;
   private sequence = 0;
   private visits = new NativeVisits();
@@ -52,6 +57,7 @@ export class BrowserTab {
         this.recovery = state.mode === 'page' ? this.message('history-lost', '页面加载已停止；可重新打开地址继续。') : undefined;
       }
       if (state.mode !== 'page') this.recovery = undefined;
+      if (this.quoteLocator.state() && state.mode !== 'page') this.cancelQuote();
       host.refresh();
     }, undefined, restored);
     this.id = this.browsing.snapshot().ownerId;
@@ -85,7 +91,9 @@ export class BrowserTab {
     if (!visit || visit.index !== position.index || visit.url !== state.value) return undefined;
     return { documentId: `${this.host.win.id}-${this.id}-${this.epoch}`, windowId: String(this.host.win.id), tabId: this.id, url: web.getURL(), title: web.getTitle().slice(0, 256) };
   }
+  cancelQuoteOnWindowBlur() { this.cancelQuote(); }
   deactivate() {
+    this.cancelQuote();
     this.action.cancel();
     if (this.host.registry.target === this.host) this.host.registry.bridge()?.revoke();
   }
@@ -100,12 +108,13 @@ export class BrowserTab {
     if (stop && previous && web && !web.isDestroyed() && web.isLoadingMainFrame()) web.stop();
   }
   private begin(kind: PageOperation['kind'], url: string, visit?: NativeVisit): PageOperation {
+    this.cancelQuote();
     this.abortOperation(kind !== 'page');
     let settle!: () => void;
     const done = new Promise<void>(resolve => { settle = resolve; });
     const operation: PageOperation = { id: ++this.sequence, kind, nodeId: this.browsing.snapshot().entryId, url,
       method: visit?.method ?? (kind === 'open' || kind === 'reload' ? 'GET' : 'UNKNOWN'), guardWrites: kind !== 'page',
-      started: false, committed: false, source: this.visits.current(), visit, done, settle };
+      started: false, committed: false, redirected: false, source: this.visits.current(), visit, done, settle };
     this.operation = operation;
     this.recovery = kind === 'page' ? undefined : this.message('loading', '正在打开所选页面…', url);
     // Revocation publishes state synchronously; deny identity before it can inspect
@@ -150,7 +159,7 @@ export class BrowserTab {
     web.on('will-redirect', details => {
       if (!details.isMainFrame) return;
       if (!current()) { details.preventDefault(); return; }
-      try { checkedUrl(details.url); if (this.operation) this.operation.url = details.url; }
+      try { checkedUrl(details.url); if (this.operation) { this.operation.url = details.url; this.operation.redirected = true; } }
       catch { details.preventDefault(); this.fail('failed', '页面重定向到不支持的地址，已停止。'); }
     });
     web.on('did-start-navigation', details => {
@@ -230,9 +239,86 @@ export class BrowserTab {
     this.title = web.getTitle().slice(0, 256); this.browsing.pageTitle(this.title); operation.settle(); this.host.refresh();
   }
   private invalidateDocument() {
+    this.clearQuoteToken(); this.quoteLocator.clear();
     this.epoch++; this.action.cancel();
     if (this.host.tabs.active() === this && this.host.registry.target === this.host) this.host.registry.bridge()?.revoke();
   }
+  private clearQuoteToken(expected = this.quoteToken) {
+    if (this.quoteToken !== expected) return;
+    const token = this.quoteToken; this.quoteToken = undefined;
+    if (token && !token.web.isDestroyed()) void token.web.executeJavaScriptInIsolatedWorld(QUOTE_LOCATOR_WORLD,
+      [{ code: quoteDomScript({ kind: 'clear', token: token.token }) }], false).catch(() => {});
+  }
+  private cancelQuote() { this.quoteOpening = undefined; this.quoteLocator.clear(); this.clearQuoteToken(); }
+  private quoteBinding(): QuoteBinding | undefined {
+    const identity = this.identity(); const state = this.browsing.snapshot(); const web = this.view?.webContents;
+    if (!identity || !web || !state.nativeVisitId || !this.host.win.isFocused() || !this.host.quotePageVisible) return undefined;
+    const frame = web.mainFrame;
+    if (frame.isDestroyed() || frame.detached || frame.parent) return undefined;
+    return Object.freeze({ ownerId: this.id, entryId: state.entryId, documentId: identity.documentId,
+      webContentsId: web.id, frameToken: frame.frameToken, nativeVisitId: state.nativeVisitId, url: identity.url });
+  }
+  private async quoteCommand(command: Parameters<typeof quoteDomScript>[0]): Promise<QuoteDomResult> {
+    const web = this.view?.webContents;
+    if (!web || web.isDestroyed()) return 'unsupported';
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let result: unknown;
+    try {
+      result = await Promise.race([web.executeJavaScriptInIsolatedWorld(QUOTE_LOCATOR_WORLD, [{ code: quoteDomScript(command) }], false),
+        new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error('定位超时')), 2500); })]);
+    } finally { clearTimeout(timer); }
+    return typeof result === 'string' && ['prepared', 'found', 'ambiguous', 'missing', 'unsupported', 'uncertain'].includes(result) ? result as QuoteDomResult : 'unsupported';
+  }
+  private async waitQuoteIdle(opening: object, entryId: string): Promise<boolean> {
+    const web = this.view?.webContents;
+    if (this.quoteOpening !== opening || this.browsing.snapshot().entryId !== entryId || !web || web.isDestroyed()) return false;
+    // did-finish-load/loadURL completion may precede did-stop-loading. Do not
+    // weaken identity()'s loading guard or silently abandon an otherwise valid open.
+    if (web.isLoadingMainFrame()) await new Promise<void>(resolve => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const settled = () => {
+        clearTimeout(timer);
+        web.removeListener('did-stop-loading', settled); web.removeListener('destroyed', settled); web.removeListener('render-process-gone', settled);
+        resolve();
+      };
+      web.once('did-stop-loading', settled); web.once('destroyed', settled); web.once('render-process-gone', settled);
+      timer = setTimeout(settled, 2500);
+      if (!web.isLoadingMainFrame()) settled();
+    });
+    return this.quoteOpening === opening && this.browsing.snapshot().entryId === entryId && this.view?.webContents === web && !web.isDestroyed() && !web.isLoadingMainFrame();
+  }
+  async openJudgmentCitation(id: string) {
+    const citation = judgmentCitation(this.browsing.snapshot(), id);
+    const loading = this.open(citation.url);
+    const openedOperation = this.operation;
+    const opening = this.quoteOpening = {};
+    const entryId = this.browsing.snapshot().entryId;
+    await loading;
+    if (!await this.waitQuoteIdle(opening, entryId)) return;
+    const binding = this.quoteBinding();
+    if (!binding) return;
+    const token = randomUUID();
+    let pageToken: typeof this.quoteToken;
+    let supported = Boolean(openedOperation && !openedOperation.redirected && binding.url === citation.url);
+    if (supported) {
+      pageToken = this.quoteToken = { token, web: this.view!.webContents };
+      try { supported = await this.quoteCommand({ kind: 'arm', token, url: citation.url }) === 'prepared'; }
+      catch { supported = false; }
+    }
+    if (this.quoteOpening !== opening || !sameQuoteBinding(binding, this.quoteBinding())) { if (pageToken) this.clearQuoteToken(pageToken); return; }
+    this.quoteOpening = undefined;
+    this.quoteLocator.start(citation, binding, token, supported);
+  }
+  async locateQuote(id: string) {
+    const state = this.quoteLocator.state();
+    if (!state || state.id !== id || state.status !== 'ready') throw new Error('定位提示已变化，请重新打开引用');
+    const token = this.quoteToken;
+    try {
+      await this.quoteLocator.locate(id, () => this.quoteBinding(),
+        (token, quote) => this.quoteCommand({ kind: 'prepare', token, quote }), token => this.quoteCommand({ kind: 'apply', token }));
+    } finally { if (token) this.clearQuoteToken(token); }
+  }
+  dismissQuote(id: string) { this.quoteLocator.dismiss(id); this.clearQuoteToken(); }
   async open(url: string) {
     const operation = this.begin('open', url); this.title = '';
     this.mutate(() => this.browsing.open(url)); operation.nodeId = this.browsing.snapshot().entryId;
@@ -248,7 +334,7 @@ export class BrowserTab {
     const state = this.browsing.snapshot();
     if (!state.path.nodes.some(node => node.id === id) && this.companion()?.id !== id) throw new Error('节点不属于当前标签或已经失效');
     if (id === state.entryId) return;
-    this.abortOperation(); this.invalidateDocument();
+    this.cancelQuote(); this.abortOperation(); this.invalidateDocument();
     this.recovery = this.message('loading', '正在恢复所选步骤…');
     this.mutate(() => this.browsing.jump(id));
     if (this.browsing.snapshot().mode !== 'page') { this.recovery = undefined; this.host.refresh(); return; }
@@ -279,9 +365,10 @@ export class BrowserTab {
     await this.load(operation);
   }
   async reload() {
-    this.browsing.cancel();
-    const state = this.browsing.snapshot(); const position = this.position();
+    const state = this.browsing.snapshot();
     if (state.mode !== 'page') return;
+    this.browsing.cancel();
+    const position = this.position();
     const visit = position && this.visits.resolve(state.nativeVisitId, position);
     if (!visit || (visit.method !== 'GET' && visit.method !== 'HEAD')) {
       this.abortOperation(); this.invalidateDocument();
@@ -292,7 +379,7 @@ export class BrowserTab {
   }
   dispose() {
     if (this.disposed) return;
-    this.disposed = true; this.abortOperation(); this.visits.clear();
+    this.cancelQuote(); this.disposed = true; this.abortOperation(); this.visits.clear();
     this.browsing.dispose(); this.action.cancel(); this.host.registry.archive(this.action.exportReceipts());
     if (this.host.attached === this.view) this.host.detach();
     const web = this.view?.webContents;
@@ -332,6 +419,7 @@ export class WindowHost {
     this.win.webContents.on('did-finish-load', () => { this.ready = true; this.resize(); this.publish(); });
     this.win.webContents.on('render-process-gone', () => { this.ready = false; for (const tab of this.tabs.all()) { tab.browsing.cancel(); tab.deactivate(); } });
     this.win.on('focus', () => registry.chooseTarget(this));
+    this.win.on('blur', () => { this.tabs.active()?.cancelQuoteOnWindowBlur(); this.publish(); });
     this.win.on('hide', () => {this.map.suspend(true);this.tabs.active()?.deactivate();});
     this.win.on('minimize', () => {this.map.suspend(true);this.tabs.active()?.deactivate();});
     this.win.on('show', () => {this.map.suspend(false);this.tabs.active()?.deactivate();});
@@ -358,7 +446,7 @@ export class WindowHost {
       tabs: this.tabs.all().map(t => ({ id: t.id, title: t.label(), mode: t.browsing.snapshot().mode, pending: Boolean(t.browsing.snapshot().pending) })),
       keyReady: this.registry.keyReady(), hasResults: Boolean(s.searchContext), agentPanelOpen: this.agentPanelOpen, agentTarget,
       storage: { ...this.registry.storageState(), persistent: tab.persistent }, storagePanelOpen: this.storagePanelOpen,
-      companion:tab.companion(), pageRecovery: tab.recovery, pathMapOpen: tab.pathMapOpen, layoutId: this.layoutId,
+      quoteLocator: tab.quoteLocator.state(), companion:tab.companion(), pageRecovery: tab.recovery, pathMapOpen: tab.pathMapOpen, layoutId: this.layoutId,
       action: tab.action.state(), agent: raw && (agentTarget ? raw : { ...raw, page: undefined, connections: raw.connections.map(c => ({ ...c, authorized: false })) }) };
   }
   publish() { if (this.ready && !this.disposed && !this.win.isDestroyed() && this.tabs.active()) { this.win.webContents.send('grid:state', this.state()); this.map.publish(); } }
@@ -400,6 +488,7 @@ export class WindowHost {
     this.map.resize({x:this.layoutLeft+Math.floor((pageWidth-dockWidth)/2),y:height-dockHeight-12,width:dockWidth,height:dockHeight},
       Boolean(this.ready && this.layoutReady && tab && (tab.pathMapOpen || tab.browsing.snapshot().path.nodes.length>1 || tab.browsing.snapshot().path.canUndo) && dockWidth>140 && dockHeight>=44));
   }
+  get quotePageVisible(): boolean { return !this.storagePanelOpen && this.ready; }
   get layoutReady(): boolean { return this.ready && this.layoutTop !== undefined; }
   reportLayout(ownerId: string, layoutId: string, value: ChromeLayout): boolean {
     const previousId = this.layoutId; this.resize();

@@ -88,3 +88,37 @@ button:disabled { cursor:not-allowed; }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important;transition:none!important; } }
 
 #exploration-heading button{border:0;border-radius:7px;background:var(--color-panel);color:var(--color-muted);font-size:19px}#exploration-heading button:hover{background:var(--color-tint);color:var(--color-accent)}
+
+/* Citation location is browser chrome in the content column, never an overlay.
+   ResizeObserver reports this exact height to the native view. The independent
+   live region remains mounted even when the visible bar is removed. */
+#quote-locator-bar {
+  margin-left: var(--frame-left, var(--sidebar-width));
+  margin-right: var(--frame-gutter, 0px);
+  margin-bottom: 6px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--frame-radius, var(--radius-control));
+  color: var(--color-ink);
+  background: var(--color-panel);
+}
+#quote-locator-bar[hidden] { display: none; }
+.quote-locator-context { display: flex; flex-wrap: wrap; gap: 4px 10px; min-width: 0; font-size: var(--text-caption); }
+.quote-locator-context strong { white-space: nowrap; }
+#quote-locator-source { min-width: 0; max-width: 100%; flex: 1 1 120px; color: var(--color-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#quote-locator-message { margin: 0; font-size: var(--text-caption); color: var(--color-muted); line-height: 1.65; overflow-wrap: anywhere; }
+.quote-locator-controls { display: flex; align-items: center; gap: 6px; grid-column: 2; grid-row: 1 / span 2; }
+.quote-locator-controls .grid-control { white-space: nowrap; }
+#quote-locate[aria-disabled='true'] { opacity: .6; cursor: default; }
+/* Chrome's normal-flow height includes reading panels, but its transparent
+   left-hand column must never intercept sidebar clicks. */
+#browser-chrome { pointer-events: none; }
+#browser-chrome :is(.toolbar, .tab-strip, #busy, #page-tools, #page-summary, #quote-locator-bar, #aux-panels > section) { pointer-events: auto; }
+@media (max-width: 800px) {
+  #quote-locator-bar { grid-template-columns: minmax(0, 1fr); }
+  .quote-locator-controls { grid-column: 1; grid-row: auto; flex-wrap: wrap; }
+}

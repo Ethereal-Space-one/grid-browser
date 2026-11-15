@@ -20,7 +20,7 @@
       <div class="brand" aria-label="Grid">GRID<span class="brand-mark">/</span></div>
       <button id="back" class="nav" type="button" aria-label="后退">←</button>
       <button id="forward" class="nav" type="button" aria-label="前进">→</button>
-      <button id="reload" class="nav" type="button" aria-label="重新加载">↻</button>
+      <button id="reload" class="nav" type="button" aria-label="重新加载" disabled>↻</button>
       <form id="input-form" class="omnibox">
         <label class="sr-only" for="input">网址或查询</label>
         <input id="input" autocomplete="off" spellcheck="false" placeholder="输入网址，或主动搜索一个问题">
@@ -42,6 +42,11 @@
 
     <div id="page-tools" hidden><span id="page-scene"></span><button id="summarize-page" type="button">总结这页</button><details id="page-more"><summary>更多</summary><div><button id="page-clean" type="button">干净正文</button><button id="page-map" type="button">查看地图与活动</button></div></details></div>
     <section id="page-summary" aria-label="网页总结" hidden><div class="page-summary-heading"><strong>这页说了什么</strong><span id="page-summary-status" role="status"></span><button id="page-summary-stop" type="button" hidden>停止</button><button id="page-summary-close" type="button" aria-label="收起网页总结">×</button></div><p class="page-summary-scope">主动获取公开正文，最多 16000 字符发给 DeepSeek；不含登录态或实时动态内容。</p><div class="page-summary-scroll"><p id="page-summary-text"></p><details><summary>查看依据</summary><div id="page-summary-citations"></div></details></div></section>
+    <section id="quote-locator-bar" aria-label="原页引文定位" hidden>
+      <div class="quote-locator-context"><strong>原页引文定位</strong><span id="quote-locator-source"></span></div>
+      <p id="quote-locator-message"></p>
+      <div id="quote-locator-controls" class="quote-locator-controls"><button id="quote-locate" aria-describedby="quote-locator-message" class="grid-control" data-variant="primary" data-size="compact" type="button">定位这段引文</button><button id="quote-dismiss" class="grid-control" data-size="compact" type="button" aria-label="关闭引文定位">关闭</button></div>
+    </section>
     <nav id="path-bar" class="path-bar" aria-label="当前浏览路径" hidden>
       <ol id="path-trail" class="path-trail"></ol>
       <p id="path-error" class="path-error" role="alert" hidden></p>
@@ -182,6 +187,7 @@
       </section>
       <div id="error" class="error hidden" role="alert"></div>
     </main>
+    <p id="quote-locator-announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
     <p id="path-announcement" class="sr-only" role="status"></p>
     <script src="path-map.js"></script>
     <script src="understanding.js"></script>

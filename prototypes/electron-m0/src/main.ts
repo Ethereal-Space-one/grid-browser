@@ -117,6 +117,9 @@ async function start() {
     tab.browsing.beginQuestion();
   });
   ui('grid:ask', (host, text, ownerId, entryId, questionId) => currentEntry(host, ownerId, entryId).browsing.ask(argument(textInputSchema, text), argument(idSchema, questionId)));
+  ui('grid:judgment-open-citation', (host, citationId, ownerId, entryId) => currentEntry(host, ownerId, entryId).openJudgmentCitation(argument(idSchema, citationId)));
+  ui('grid:quote-locate', (host, locatorId, ownerId, entryId) => currentEntry(host, ownerId, entryId).locateQuote(argument(idSchema, locatorId)));
+  ui('grid:quote-dismiss', (host, locatorId, ownerId, entryId) => currentEntry(host, ownerId, entryId).dismissQuote(argument(idSchema, locatorId)));
   ui('grid:judgment-begin', (host, ownerId, entryId) => currentEntry(host, ownerId, entryId).browsing.beginJudgment());
   ui('grid:judgment-edit', (host, value, ownerId, entryId) => currentEntry(host, ownerId, entryId).browsing.editJudgment(argument(judgmentEditSchema, value)));
   ui('grid:judgment-save', (host, value, ownerId, entryId) => currentEntry(host, ownerId, entryId).browsing.saveJudgment(argument(judgmentSaveSchema, value)));

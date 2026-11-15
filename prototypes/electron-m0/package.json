@@ -17,7 +17,7 @@
     "test:e2e:path-map": "npm run test:e2e:reading-flow",
     "build": "tsc && node scripts/copy-assets.mjs",
     "start": "npm run build && electron .",
-    "test": "npm run build && node --test dist/intent.test.js dist/search.test.js dist/bridge.test.js dist/form-action.test.js dist/scenes.test.js dist/browsing-session.test.js dist/request-boundaries.test.js dist/navigation-tabs.test.js dist/native-visits.test.js dist/understanding.test.js dist/comparison.test.js dist/judgment.test.js dist/task-storage.test.js dist/reading-flow.test.js",
+    "test": "npm run build && node --test dist/intent.test.js dist/search.test.js dist/bridge.test.js dist/form-action.test.js dist/scenes.test.js dist/browsing-session.test.js dist/request-boundaries.test.js dist/navigation-tabs.test.js dist/native-visits.test.js dist/understanding.test.js dist/comparison.test.js dist/judgment.test.js dist/task-storage.test.js dist/reading-flow.test.js dist/quote-locator.test.js scripts/test-page-reload.cjs scripts/test-quote-locator-host.cjs",
     "test:e2e:live": "npm run build && electron scripts/e2e-live.cjs",
     "test:e2e:live:inspect": "npm run build && electron scripts/e2e-live.cjs --keep-open",
     "test:e2e:mcp": "npm run build && electron scripts/e2e-mcp.cjs",
@@ -30,7 +30,10 @@
     "test:e2e:judgment": "npm run build && electron scripts/e2e-judgment.cjs",
     "test:e2e:storage": "npm run build && node scripts/e2e-storage.cjs",
     "test:package:flow": "node scripts/smoke-package-flow.cjs",
-    "test:e2e:reading-flow": "npm run build && electron scripts/e2e-reading-flow.cjs"
+    "test:e2e:reading-flow": "npm run build && electron scripts/e2e-reading-flow.cjs",
+    "test:quote:setup": "npm ci --prefix scripts/quote-regression/deps",
+    "test:quote:dom": "npm run build && node --test scripts/quote-regression/quote-location.test.cjs && node scripts/quote-regression/locator-ui-dom.cjs && node --test scripts/test-quote-locator-dom.cjs",
+    "test:e2e:quotes": "npm run build && electron scripts/e2e-quote-locator.cjs"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.4.0",

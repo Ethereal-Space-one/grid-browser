@@ -164,12 +164,19 @@ namespace SourceComparison {
         for (const [index, side] of [row.left, row.right].entries()) {
           const column = document.createElement('article'); column.append(text('h3', `来源 ${index ? 'B' : 'A'}`), text('p', side.text));
           for (const [quoteIndex, quote] of side.quotes.entries()) {
-            const button = this.button('定位这版依据', `comparison-quote-${rowIndex}-${index}-${quoteIndex}`, async () => {
-              const source = record!.sources[index].source!; const body = el(`comparison-text-${index}`); const details = el<HTMLDetailsElement>(`comparison-evidence-${index}`);
-              const offset = source.text.indexOf(quote); if (offset < 0) return;
-              const back = el(`comparison-evidence-back-${index}`); back.hidden = false;
-              back.dataset.quoteTarget = `comparison-quote-${rowIndex}-${index}-${quoteIndex}`; back.dataset.collapse = String(!details.open);
-              details.open = true; const mark = text('mark', quote); mark.tabIndex = -1;
+            const source = record!.sources[index].source; const offset = source && quote ? source.text.indexOf(quote) : -1;
+            const ambiguous = offset >= 0 && source!.text.indexOf(quote, offset + 1) >= 0;
+            const label = ambiguous ? '多处匹配 · 仅查看正文' : offset < 0 ? '未匹配 · 查看正文核对' : '定位这版依据';
+            const button = this.button(label, `comparison-quote-${rowIndex}-${index}-${quoteIndex}`, async () => {
+              if (!source || source.released) return;
+              const body = el(`comparison-text-${index}`); const details = el<HTMLDetailsElement>(`comparison-evidence-${index}`);
+              const back = el(`comparison-evidence-back-${index}`);
+              body.textContent = source.text; back.hidden = true; delete back.dataset.quoteTarget; delete back.dataset.collapse;
+              const wasOpen = details.open; details.open = true;
+              if (offset < 0 || ambiguous) return;
+              back.hidden = false;
+              back.dataset.quoteTarget = `comparison-quote-${rowIndex}-${index}-${quoteIndex}`; back.dataset.collapse = String(!wasOpen);
+              const mark = text('mark', quote); mark.tabIndex = -1;
               body.replaceChildren(document.createTextNode(source.text.slice(0, offset)), mark, document.createTextNode(source.text.slice(offset + quote.length)));
               mark.focus({ preventScroll: true }); mark.scrollIntoView({ block: 'center', behavior: 'instant' });
             });

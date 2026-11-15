@@ -40,6 +40,13 @@ app.whenReady().then(async () => {
     const results = (await state()).entryId;
     await ui('window.grid.read("https://example.com/article")'); const reading = (await state()).entryId;
     await ui(`window.grid.open(${JSON.stringify(base + '/a')})`); await stable(base + '/a');
+    assert.equal(await ui('document.querySelector("#reload").disabled'), false);
+    const reloadNode = (await state()).entryId, trafficBeforeReload = traffic.length;
+    await ui('document.querySelector("#reload").click()');
+    await until(() => traffic.length > trafficBeforeReload, 'page reload request');
+    await stable(base + '/a');
+    assert.equal((await state()).entryId, reloadNode);
+    passed('toolbar-reload-still-reloads-the-current-real-page-without-a-new-node');
     await view().executeJavaScript('document.querySelector("#next").click()'); await stable(base + '/b');
     const b = (await state()).entryId;
     await view().executeJavaScript('document.querySelector("#next").click()'); await stable(base + '/same');

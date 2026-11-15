@@ -89,6 +89,7 @@ document.querySelector('#refetch-reading')!.addEventListener('click', () => { co
 const shell = new ReadingShell.Controller({state:()=>renderedState,grid,save:savePresentation,work,measure:measureChrome});
 const understanding = new Understanding.Controller({ state: () => renderedState, grid, save: savePresentation, work });
 const judgments = new PersonalJudgment.Controller({ state: () => renderedState, grid, save: savePresentation, work });
+const quoteLocator = new OriginalQuoteLocator.Controller({ state: () => renderedState, grid, work, measure: measureChrome });
 const comparisons = new SourceComparison.Controller({ state: () => renderedState, grid, save: savePresentation, work });
 let actionId = '';
 function renderAgent(state: State): void {
@@ -353,6 +354,7 @@ function renderState(state: State): void {
   comparisons.render(state);
   judgments.render(state);
   storage.render(state);
+  quoteLocator.render(state);
   if (state.value !== lastStateValue) { input.value = switched ? state.presentation.addressDraft ?? state.value : state.value; lastStateValue = state.value; }
   if (switched) {
     const key = viewKey;
@@ -363,6 +365,7 @@ function renderState(state: State): void {
   });
   document.querySelector<HTMLButtonElement>('#back')!.disabled = !state.canGoBack;
   document.querySelector<HTMLButtonElement>('#forward')!.disabled = !state.canGoForward;
+  document.querySelector<HTMLButtonElement>('#reload')!.disabled = state.mode !== 'page';
   document.querySelector<HTMLButtonElement>('#return-results')!.disabled = !state.hasResults;
   document.querySelector<HTMLElement>('#setup')!.textContent = state.keyReady
     ? '搜索已配置。搜索结果由 DeepSeek 提供；短总结和正文问答由你按需开启。'

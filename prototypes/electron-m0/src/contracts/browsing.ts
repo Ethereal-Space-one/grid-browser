@@ -1,3 +1,4 @@
+import type { QuoteLocatorState } from './quote-locator';
 import type { StorageState } from './task-storage';
 import type { Judgment, JudgmentEdit, JudgmentSave, JudgmentScope } from './judgment';
 import { z } from 'zod';
@@ -81,6 +82,7 @@ export type State = BrowsingState & {
   hasResults: boolean; keyReady: boolean; agentPanelOpen: boolean; agentTarget: boolean;
   action?: ReturnType<FormAction['state']>; agent?: ReturnType<LocalBridge['state']>;
   pageRecovery?: PageRecovery;
+  quoteLocator?: QuoteLocatorState;
   companion?: { id: string; url: string; title: string };
   pathMapOpen: boolean; layoutId: string; storage: StorageState & {persistent:boolean}; storagePanelOpen:boolean;
 };
@@ -95,6 +97,9 @@ export type GridApi = {
   summarizePage(ownerId: string, entryId: string): Promise<void>;
   beginQuestion(ownerId: string, entryId: string): Promise<void>;
   ask(question: string, ownerId: string, entryId: string, questionId: string): Promise<void>;
+  judgmentOpenCitation(citationId: string, ownerId: string, entryId: string): Promise<void>;
+  quoteLocate(locatorId: string, ownerId: string, entryId: string): Promise<void>;
+  quoteDismiss(locatorId: string, ownerId: string, entryId: string): Promise<void>;
   judgmentBegin(ownerId: string, entryId: string): Promise<void>;
   judgmentEdit(edit: JudgmentEdit, ownerId: string, entryId: string): Promise<void>;
   judgmentSave(save: JudgmentSave, ownerId: string, entryId: string): Promise<void>;

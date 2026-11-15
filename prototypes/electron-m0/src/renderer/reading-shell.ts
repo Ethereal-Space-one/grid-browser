@@ -68,3 +68,85 @@ namespace ReadingShell {
   }
   function hooksJump(hooks:{save:()=>Promise<boolean>;grid:GridApi;work:(action:()=>Promise<unknown>)=>unknown},id:string,s:State){hooks.work(async()=>{if(await hooks.save())await hooks.grid.jump(id,s.ownerId,s.entryId);});}
 }
+
+namespace OriginalQuoteLocator {
+  type State = import('../contracts/browsing').State;
+  type GridApi = import('../contracts/browsing').GridApi;
+  const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
+  export class Controller {
+    private visible = false;
+    private lastAnnouncement = '';
+    private commands = new Set<string>();
+    constructor(private hooks: { state: () => State | undefined; grid: GridApi; work: (action: () => Promise<unknown>) => unknown; measure: () => void }) {
+      el('quote-locate').addEventListener('click', () => this.command('locate'));
+      el('quote-dismiss').addEventListener('click', () => this.command('dismiss'));
+      el('quote-locator-bar').addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+        // Only a key from this bar is ours. Dialogs, menus, and the native map
+        // keep their own Escape handling and higher-level dismissal order.
+        event.preventDefault(); event.stopPropagation(); this.command('dismiss');
+      });
+    }
+    private command(kind: 'locate' | 'dismiss') {
+      const s = this.hooks.state(), locator = s?.quoteLocator;
+      if (!s || s.mode !== 'page' || !locator || (kind === 'locate' && locator.status !== 'ready')) return;
+      const key = `${s.ownerId}:${s.entryId}:${locator.id}:${kind}`;
+      if (this.commands.has(key)) return;
+      this.commands.add(key);
+      this.hooks.work(async () => {
+        try {
+          if (kind === 'locate') await this.hooks.grid.quoteLocate(locator.id, s.ownerId, s.entryId);
+          else await this.hooks.grid.quoteDismiss(locator.id, s.ownerId, s.entryId);
+        } catch (error) {
+          const current = this.hooks.state();
+          if (current?.ownerId === s.ownerId && current.entryId === s.entryId && current.quoteLocator?.id === locator.id) {
+            const message = kind === 'locate' ? '定位未完成，请直接阅读原页核对。' : '未能关闭引文定位，请重试。';
+            el('quote-locator-message').textContent = message; this.announce(`${locator.id}:${kind}:error`, message);
+          }
+          throw error;
+        } finally { this.commands.delete(key); }
+      });
+    }
+    private announce(key: string, text: string) {
+      if (key === this.lastAnnouncement) return;
+      this.lastAnnouncement = key;
+      el('quote-locator-announcement').textContent = text;
+    }
+    render(s: State) {
+      const bar = el('quote-locator-bar');
+      const locator = s.mode === 'page' ? s.quoteLocator : undefined;
+      // Electron keeps document.activeElement after native focus has moved away.
+      // Test both ownership and actual document focus before restoring anything.
+      const ownedFocus = this.visible && bar.contains(document.activeElement) && document.hasFocus();
+      const visible = Boolean(locator);
+      bar.hidden = !visible;
+      if (locator) {
+        bar.dataset.state = locator.status;
+        el('quote-locator-source').textContent = locator.sourceTitle;
+        el('quote-locator-source').title = locator.sourceUrl;
+        el('quote-locator-message').textContent = locator.message;
+        const locate = el<HTMLButtonElement>('quote-locate');
+        // aria-disabled keeps the stable focused control in the tab order.
+        // The guarded handler prevents duplicate work without blurring it.
+        locate.setAttribute('aria-disabled', String(locator.status !== 'ready'));
+        locate.setAttribute('aria-busy', String(locator.status === 'locating'));
+        this.announce(`${s.ownerId}:${s.entryId}:${locator.id}:${locator.status}:${locator.message}`, locator.message);
+      } else if (this.visible) {
+        this.announce(`closed:${s.ownerId}:${s.entryId}`, '引文定位已关闭。');
+      }
+      if (visible !== this.visible) this.hooks.measure();
+      this.visible = visible;
+      // Never restore from an async command callback. A newer Tab destination,
+      // dialog, or native page focus always wins. Only removal of our focused
+      // controls permits an immediate move to a visible logical destination.
+      if (!visible && ownedFocus) {
+        const candidates = s.mode === 'page' ? ['summarize-page', 'back', 'input'] : s.mode === 'home' ? ['home-query', 'input'] : ['input'];
+        for (const id of candidates) {
+          const next = document.getElementById(id);
+          if (!(next instanceof HTMLElement) || !next.getClientRects().length || next.closest('[hidden],.hidden,[inert]') || (next instanceof HTMLButtonElement && next.disabled)) continue;
+          next.focus({ preventScroll: true }); break;
+        }
+      }
+    }
+  }
+}

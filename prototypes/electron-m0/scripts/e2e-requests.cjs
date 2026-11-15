@@ -1,5 +1,5 @@
 // Production Electron UI/IPC with controllable, synthetic provider responses.
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, Menu } = require('electron');
 const { mkdtempSync, mkdirSync, writeFileSync, existsSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const path = require('node:path');
@@ -51,8 +51,24 @@ app.whenReady().then(async () => {
   const state = () => ui('window.grid.state()');
   try {
     await ready();
-    await ui('document.querySelector("#home-query").value="基线问题";document.querySelector("#home-search").requestSubmit()');
+    assert.equal(await ui('document.querySelector("#reload").disabled'), true);
+    const homeSearch = hold('search');
+    await ui('document.querySelector("#home-query").value="基线问题";document.querySelector("#home-query").dispatchEvent(new Event("input",{bubbles:true}));document.querySelector("#home-search").requestSubmit()');
+    await until(() => homeSearch.record);
+    const homePending = await state();
+    assert.equal(homePending.mode, 'home');
+    assert.equal(await ui('document.querySelector("#reload").disabled'), true);
+    await ui('document.querySelector("#reload").click();window.grid.reload()');
+    const reloadMenu = Menu.getApplicationMenu().items.flatMap(item => item.submenu?.items ?? []).find(item => item.label === '重新加载');
+    assert.equal(reloadMenu.accelerator, 'CommandOrControl+R');
+    reloadMenu.click(); await pause();
+    assert.equal(homeSearch.record.signal.aborted, false);
+    assert.equal((await state()).pending.id, homePending.pending.id);
+    assert.equal((await state()).path.nodes.find(node => node.id === homePending.entryId).status, 'pending');
+    homeSearch.resolve(response(searchResponse('基线问题')));
     await until(async () => (await state()).search?.query === '基线问题');
+    assert.equal(await ui('document.querySelector("#reload").disabled'), true);
+    report.push('Home-and-results-reload-disabled-IPC-and-native-menu-preserve-pending-search');
     const old = hold('search');
     const pendingOld = ui('window.grid.submit("旧慢请求")');
     await until(() => old.record);

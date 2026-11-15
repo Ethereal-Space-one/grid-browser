@@ -84,12 +84,14 @@ document.querySelectorAll<HTMLInputElement>('input[name="scene"]').forEach(radio
 }));
 
 (window as unknown as {gridFlushDrafts:()=>Promise<boolean>}).gridFlushDrafts = savePresentation;
+const homeEntry = new HomeEntry.Controller({state:()=>renderedState,grid,save:savePresentation,work});
 const storage = new LocalPaths.Controller({ state: () => renderedState, grid, save: savePresentation, work });
 document.querySelector('#refetch-reading')!.addEventListener('click', () => { const s=renderedState; if (s) void work(async()=>{await savePresentation();await grid.read(s.value,s.ownerId);}); });
 const shell = new ReadingShell.Controller({state:()=>renderedState,grid,save:savePresentation,work,measure:measureChrome});
 const understanding = new Understanding.Controller({ state: () => renderedState, grid, save: savePresentation, work });
 const judgments = new PersonalJudgment.Controller({ state: () => renderedState, grid, save: savePresentation, work });
 const quoteLocator = new OriginalQuoteLocator.Controller({ state: () => renderedState, grid, work, measure: measureChrome });
+const failureExits = new FailureExits.Controller({ state: () => renderedState, grid, save: savePresentation, work, measure: measureChrome });
 const comparisons = new SourceComparison.Controller({ state: () => renderedState, grid, save: savePresentation, work });
 let actionId = '';
 function renderAgent(state: State): void {
@@ -181,6 +183,7 @@ function addResult(hit: SearchHit, index: number): void {
 }
 
 async function submitQuery(raw: string): Promise<void> {
+  if(renderedState?.mode==='home' && !homeEntry.validate(raw))return;
   const owner = renderedState?.ownerId; const scene = selectedScene; const contextual = document.querySelector<HTMLInputElement>('#contextual-search')!.checked;
   await work(async () => { await savePresentation(); await grid.submit(raw, { scene, contextual }, owner); });
 }
@@ -358,7 +361,9 @@ function renderState(state: State): void {
   comparisons.render(state);
   judgments.render(state);
   storage.render(state);
+  homeEntry.render(state);
   quoteLocator.render(state);
+  failureExits.render(state);
   if (state.value !== lastStateValue) { input.value = switched ? state.presentation.addressDraft ?? state.value : state.value; lastStateValue = state.value; }
   if (switched) {
     const key = viewKey;

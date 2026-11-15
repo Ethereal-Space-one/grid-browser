@@ -45,7 +45,8 @@ namespace ReadingShell {
       el('page-summary').hidden=!visible;
       const summary=s.summary?.searchId===`page:${s.entryId}`?s.summary:undefined;
       el('page-summary-text').textContent=summary?.text||'';
-      el('page-summary-status').textContent=s.pending?.kind==='summary'?'正在整理公开正文…':s.issue?.kind==='summary'?s.issue.message:summary?'AI 总结 · 未核对原文'+(summary.pageSource?' · Fetch 来源取得于 '+new Date(summary.pageSource.fetchedAt).toLocaleString('zh-CN'):' · Fetch 来源取得时间不可用'):'准备获取公开正文…';
+      el('page-summary-status').textContent=s.pending?.kind==='summary'?'正在整理公开正文…':s.issue?.kind==='summary'?s.issue.message:summary?'AI 总结 · 未核对原文':'准备获取公开正文…';
+      el('page-summary-source').textContent=summary?.pageSource?summary.pageSource.title+' · Fetch 来源取得于 '+new Date(summary.pageSource.fetchedAt).toLocaleString('zh-CN'):'Fetch 来源取得时间不可用';
       el('page-summary').setAttribute('aria-busy',String(s.pending?.kind==='summary'));
       el('page-summary-stop').hidden=s.pending?.kind!=='summary';
       const citations=el('page-summary-citations');citations.replaceChildren();
@@ -79,6 +80,7 @@ namespace OriginalQuoteLocator {
     private commands = new Set<string>();
     constructor(private hooks: { state: () => State | undefined; grid: GridApi; work: (action: () => Promise<unknown>) => unknown; measure: () => void }) {
       el('quote-locate').addEventListener('click', () => this.command('locate'));
+      el('quote-return').addEventListener('click', () => this.command('return'));
       el('quote-dismiss').addEventListener('click', () => this.command('dismiss'));
       el('quote-locator-bar').addEventListener('keydown', event => {
         if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
@@ -87,20 +89,21 @@ namespace OriginalQuoteLocator {
         event.preventDefault(); event.stopPropagation(); this.command('dismiss');
       });
     }
-    private command(kind: 'locate' | 'dismiss') {
+    private command(kind: 'locate' | 'dismiss' | 'return') {
       const s = this.hooks.state(), locator = s?.quoteLocator;
-      if (!s || s.mode !== 'page' || !locator || (kind === 'locate' && locator.status !== 'ready')) return;
+      if (!s || s.mode !== 'page' || !locator || (kind === 'locate' && locator.status !== 'ready') || (kind === 'return' && !locator.returnLabel)) return;
       const key = `${s.ownerId}:${s.entryId}:${locator.id}:${kind}`;
       if (this.commands.has(key)) return;
       this.commands.add(key);
       this.hooks.work(async () => {
         try {
           if (kind === 'locate') await this.hooks.grid.quoteLocate(locator.id, s.ownerId, s.entryId);
+          else if (kind === 'return') await this.hooks.grid.quoteReturn(locator.id, s.ownerId, s.entryId);
           else await this.hooks.grid.quoteDismiss(locator.id, s.ownerId, s.entryId);
         } catch (error) {
           const current = this.hooks.state();
           if (current?.ownerId === s.ownerId && current.entryId === s.entryId && current.quoteLocator?.id === locator.id) {
-            const message = kind === 'locate' ? '定位未完成，请直接阅读原页核对。' : '未能关闭引文定位，请重试。';
+            const message = kind === 'locate' ? '定位未完成，请直接阅读原页核对。' : kind === 'return' ? '未能返回当时的判断，未打开其他版本；可使用浏览后退或地图核对。' : '未能关闭引文定位，请重试。';
             el('quote-locator-message').textContent = message; this.announce(`${locator.id}:${kind}:error`, message);
           }
           throw error;
@@ -125,6 +128,9 @@ namespace OriginalQuoteLocator {
         el('quote-locator-source').textContent = locator.sourceTitle;
         el('quote-locator-source').title = locator.sourceUrl;
         el('quote-locator-message').textContent = locator.message;
+        const back = el<HTMLButtonElement>('quote-return');
+        back.hidden = !locator.returnLabel;
+        back.title = '返回打开这条引用时的同一判断版本和阅读位置，不重新生成';
         const locate = el<HTMLButtonElement>('quote-locate');
         // aria-disabled keeps the stable focused control in the tab order.
         // The guarded handler prevents duplicate work without blurring it.
@@ -140,7 +146,7 @@ namespace OriginalQuoteLocator {
       // dialog, or native page focus always wins. Only removal of our focused
       // controls permits an immediate move to a visible logical destination.
       if (!visible && ownedFocus) {
-        const candidates = s.mode === 'page' ? ['summarize-page', 'back', 'input'] : s.mode === 'home' ? ['home-query', 'input'] : ['input'];
+        const candidates = s.mode === 'page' ? ['summarize-page', 'back', 'input'] : s.mode === 'home' ? ['home-query', 'input'] : s.mode === 'judgment' ? ['judgment-title', 'input'] : ['input'];
         for (const id of candidates) {
           const next = document.getElementById(id);
           if (!(next instanceof HTMLElement) || !next.getClientRects().length || next.closest('[hidden],.hidden,[inert]') || (next instanceof HTMLButtonElement && next.disabled)) continue;

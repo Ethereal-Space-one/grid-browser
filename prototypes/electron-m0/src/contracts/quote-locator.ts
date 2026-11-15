@@ -2,5 +2,6 @@
 export type QuoteLocatorStatus = 'ready' | 'locating' | 'found' | 'ambiguous' | 'missing' | 'unsupported' | 'uncertain';
 export type QuoteLocatorState = Readonly<{
   id: string; citationId: string; sourceTitle: string; sourceUrl: string;
+  returnLabel?: '返回判断';
   status: QuoteLocatorStatus; message: string;
 }>;

@@ -26,8 +26,9 @@
 .comparison-heading .eyebrow { flex: 1; }
 .comparison-view p { overflow-wrap: anywhere; }
 .comparison-view h2 { margin: 0 0 var(--space-xs); font-size: 19px; line-height: 1.4; overflow-wrap: anywhere; }
-.comparison-view h3 { font-size: var(--text-caption); color: var(--color-muted); font-weight: 600; }
+.comparison-view h3 { margin: 0 0 var(--space-xs); font-size: var(--text-body); color: var(--color-muted); font-weight: 600; }
 .comparison-caption, .comparison-url { font-size: var(--text-caption); color: var(--color-muted); line-height: 1.6; }
+.comparison-view .eyebrow, .comparison-view .comparison-caption, .comparison-view .comparison-url, .comparison-view .comparison-source-issue { font-size: var(--text-body); }
 .comparison-url { overflow-wrap: anywhere; }
 .comparison-sources, .comparison-pair { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-md); }
 .comparison-sources { margin: var(--space-md) 0 var(--space-lg); }
@@ -41,14 +42,22 @@
 .comparison-source .question-evidence pre { max-height: 300px; overflow: auto; }
 .comparison-row { padding: var(--space-md) 0 var(--space-lg); border-top: 1px solid var(--color-rule); }
 .comparison-row p { margin: var(--space-xs) 0; white-space: pre-wrap; }
-.comparison-relation { display: inline-block; font-size: var(--text-caption); color: var(--color-accent); background: var(--color-tint); padding: 4px var(--space-xs); border-radius: var(--radius-control); }
+.comparison-relation { display: inline-block; font-size: var(--text-body); color: var(--color-accent); background: var(--color-tint); padding: 4px var(--space-xs); border-radius: var(--radius-control); }
 .comparison-relation[data-relation='conflict'], .comparison-relation[data-relation='insufficient'] { color: var(--color-warning); background: var(--color-warning-paper); }
+.comparison-pair { margin-top: var(--space-sm); }
+.comparison-pair > article { min-width: 0; }
+.comparison-quote { margin-top: var(--space-sm); }
+.comparison-quote + .comparison-quote { margin-top: var(--space-md); }
+.comparison-quote-issue { font-size: var(--text-body); color: var(--color-warning); line-height: 1.6; }
 .comparison-row blockquote { margin: var(--space-sm) 0 var(--space-xs); padding-left: var(--space-sm); border-left: 2px solid var(--color-rule); color: var(--color-muted); font-size: var(--text-body); line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 #comparison-status { min-height: 1.6em; }
 #comparison-status[data-state='loading'], #comparison-status[data-state='success'] { color: var(--color-accent); }
 #comparison-status[data-state='error'] { color: var(--color-danger); }
-.comparison-tray button, .comparison-view button { white-space: nowrap; }
+.comparison-tray button { white-space: nowrap; }
+.comparison-view button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+body[data-companion='true'] #comparison-view button { font-size: var(--text-body); min-height: 36px; }
+body[data-companion='true'] .comparison-pair { grid-template-columns: minmax(0,1fr); }
 @media (max-width: 640px) { .comparison-sources, .comparison-pair { grid-template-columns: minmax(0,1fr); } .comparison-source { padding: var(--space-sm); } .comparison-tray { padding-inline: var(--space-sm); } .comparison-count { display: none; } }
-@media (pointer: coarse) { .comparison-pick, .comparison-selection button, .comparison-result-tools button { min-height: 44px; } }
+@media (pointer: coarse) { .comparison-pick, .comparison-selection button, .comparison-result-tools button, body[data-companion='true'] #comparison-view button { min-height: 44px; } }
 /* Keep a reachable map list when the temporary selection tray shares the auxiliary area. */
 #aux-panels:has(.comparison-tray:not([hidden])) .path-map { min-height: min(110px,var(--aux-budget)); }

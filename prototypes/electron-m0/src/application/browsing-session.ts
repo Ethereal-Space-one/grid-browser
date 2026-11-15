@@ -1,3 +1,4 @@
+import type { JudgmentQuoteOrigin } from './quote-locator';
 import type { StoredTask } from '../contracts/task-storage';
 import { judgmentEditSchema, judgmentSaveSchema, judgmentScope, type Judgment, type JudgmentCitation, type JudgmentEdit, type JudgmentSave } from '../contracts/judgment';
 import { argument } from '../contracts/browsing';
@@ -33,6 +34,12 @@ export class BrowsingSession {
   }
   removeNode(id: string) { this.navigation.remove(id); this.update({}, 'none'); }
   undoRemoval() { this.navigation.undoRemoval(); this.update({}, 'none'); }
+  hasJudgmentQuoteOrigin(origin: JudgmentQuoteOrigin): boolean {
+    if (this.disposed || !this.current.path.nodes.some(node => node.id === origin.entryId)) return false;
+    const entry = this.navigation.get(origin.entryId), j = entry?.content.mode === 'judgment' && entry.content.judgment;
+    return Boolean(j && j.id === origin.recordId && j.revision === origin.revision && j.citations.some(c => c.id === origin.citationId
+      && (j.status === 'draft' || j.citationIds.includes(c.id))));
+  }
   navigationTarget(direction: -1 | 1) { return this.navigation.navigationTarget(direction); }
   explorationTitle() { return this.navigation.explorationTitle(); }
   pageAncestor() { return this.navigation.pageAncestor(); }

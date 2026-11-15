@@ -12,6 +12,8 @@ export type Scene = z.infer<typeof sceneSchema>;
 export const textInputSchema = z.string().max(8192).trim().min(1);
 export const submitOptionsSchema = z.object({ scene: sceneSchema.optional(), contextual: z.boolean().optional() }).strict().optional();
 export const idSchema = z.string().min(1).max(256);
+export const storageResumeSchema = z.object({ nodeId:idSchema, ownerId:idSchema, entryId:idSchema }).strict().optional();
+export type StorageResumeRequest = NonNullable<z.infer<typeof storageResumeSchema>>;
 export const keySchema = z.string().max(512).trim().min(10);
 export const presentationSchema = z.object({
   scrollTop: z.number().finite().min(0).max(10_000_000), addressDraft: z.string().max(8192).nullable(),
@@ -88,7 +90,7 @@ export type State = BrowsingState & {
 };
 export type SubmitResponse = ({ kind: 'results' } & SearchResponse) | { kind: 'page' | 'cancelled' };
 export type GridApi = {
-  storagePanel(open:boolean): Promise<void>; storageFlush(): Promise<void>; storageRestore(id:string): Promise<void>; storageDelete(id:string): Promise<void>; temporaryPath(): Promise<string>;
+  storagePanel(open:boolean): Promise<void>; storageFlush(): Promise<void>; storageRestore(id:string, resume?:StorageResumeRequest): Promise<void>; storageDelete(id:string): Promise<void>; temporaryPath(): Promise<string>;
   actionPreview(value: string, ownerId?: string): Promise<void>; actionConfirm(id: string, ownerId?: string): Promise<void>;
   actionPause(ownerId?: string): Promise<void>; actionResume(ownerId?: string): Promise<void>; actionCancel(ownerId?: string): Promise<void>;
   configureKey(key: string): Promise<void>; setScene(scene: string, ownerId?: string): Promise<void>;
@@ -99,6 +101,7 @@ export type GridApi = {
   ask(question: string, ownerId: string, entryId: string, questionId: string): Promise<void>;
   judgmentOpenCitation(citationId: string, ownerId: string, entryId: string): Promise<void>;
   quoteLocate(locatorId: string, ownerId: string, entryId: string): Promise<void>;
+  quoteReturn(locatorId: string, ownerId: string, entryId: string): Promise<void>;
   quoteDismiss(locatorId: string, ownerId: string, entryId: string): Promise<void>;
   judgmentBegin(ownerId: string, entryId: string): Promise<void>;
   judgmentEdit(edit: JudgmentEdit, ownerId: string, entryId: string): Promise<void>;

@@ -201,6 +201,7 @@ namespace SourceComparison {
         for (const [index, side] of [row.left, row.right].entries()) {
           const column = document.createElement('article'); column.append(text('h3', `来源 ${index ? 'B' : 'A'}`), text('p', side.text));
           for (const [quoteIndex, quote] of side.quotes.entries()) {
+            const evidence = document.createElement('div'); evidence.className = 'comparison-quote';
             const source = record!.sources[index].source; const offset = source && quote ? source.text.indexOf(quote) : -1;
             const ambiguous = offset >= 0 && source!.text.indexOf(quote, offset + 1) >= 0;
             const label = ambiguous ? '多处匹配 · 查看引用快照' : offset < 0 ? '未匹配 · 查看引用快照' : '定位快照引文';
@@ -218,10 +219,16 @@ namespace SourceComparison {
               mark.focus({ preventScroll: true }); mark.scrollIntoView({ block: 'center', behavior: 'instant' });
             });
             if (!source || source.released) { button.disabled = true; button.textContent = '完整快照未保存 · 无法定位'; }
-            const version = source ? `引用快照 · 取得于 ${new Date(source.fetchedAt).toLocaleString('zh-CN')}` : '引用快照的取得时间不可用';
-            const note = !source || source.released ? ' · 这里只保留引文，无法定位完整快照'
-              : ambiguous || offset < 0 ? ` · ${ambiguous ? '多处匹配' : '未匹配'}，未定位；仅展开固定文本供核对` : '';
-            column.append(text('blockquote', quote), text('p', version + note, 'comparison-caption'), button);
+            // Full version/scope stays in the A/B source cards. Repeat only a local
+            // limitation beside the affected quote, not successful provenance.
+            const note = !source || source.released ? '这里只保留引文，无法定位完整快照'
+              : ambiguous || offset < 0 ? `${ambiguous ? '多处匹配' : '未匹配'}，未定位；仅展开固定文本供核对` : '';
+            evidence.append(text('blockquote', quote));
+            if (note) {
+              const issue = text('p', note, 'comparison-quote-issue'); issue.id = `${button.id}-issue`;
+              evidence.append(issue); button.setAttribute('aria-describedby', issue.id);
+            }
+            evidence.append(button); column.append(evidence);
           }
           pair.append(column);
         }

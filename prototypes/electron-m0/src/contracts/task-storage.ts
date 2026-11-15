@@ -40,7 +40,7 @@ export type StoredRecord = z.infer<typeof taskRecordSchema>;
 export type Workspace = { windows: { paths: string[]; selected: string }[]; active: number };
 export const workspaceSchema = z.object({windows:z.array(z.object({paths:z.array(uuid).max(12),selected:uuid}).strict()).max(4),active:z.number().int().min(0).max(3)}).strict();
 export type StorageState = Readonly<{ status:'ready'|'dirty'|'saving'|'saved'|'error'|'blocked'; message?:string; committedAt?:string; generation?:string;
-  paths:readonly Readonly<{id:string;title:string;step?:string;updatedAt:string;nodes:number}>[]; limit:number; bytes:number }>;
+  paths:readonly Readonly<{id:string;title:string;step?:string;updatedAt:string;nodes:number;continuation?:TaskContinuation}>[]; limit:number; bytes:number }>;
 const pick = (v:any, fields:string[]) => Object.fromEntries(fields.filter(k => v[k] !== undefined).map(k => [k,v[k]]));
 export const storedQuery = (v:any) => v && pick(v,['id','query','actualQuery','scene','contextual']);
 const storedSource = (v:any) => v && ({...pick(v,['readingId','title','url','fetchedAt','truncated']), text:'',released:true});
@@ -74,4 +74,37 @@ export function parseTask(raw:unknown):StoredTask {
   }
   const referenced=new Set(task.nodes.flatMap(n=>Object.values(n.references)));if(task.records.some(r=>!referenced.has(r.key)))throw new Error('未引用内容');
   return task;
+}
+
+export type TaskContinuation = Readonly<{ entryId:string; title:string; step:string }>;
+/** Recall only a completed, visible substantive step. Home/scene/draft-only paths have no continuation. */
+export function taskContinuation(task:StoredTask):TaskContinuation|undefined {
+  const nodes=new Map(task.nodes.map(node=>[node.id,node]));
+  let node=nodes.get(task.currentId);
+  // A Home step is a stopping surface, not the substance the person wants to continue.
+  while(node && (node.removed || node.step.kind==='home' || node.step.status!=='ready')) {
+    node=node.parentId?nodes.get(node.parentId):undefined;
+  }
+  // Going back to the original Home keeps its selected branch, without inventing history.
+  if(!node) {
+    let branch=nodes.get(task.rootId);let latest:typeof branch;
+    const seen=new Set<string>();
+    while(branch && !seen.has(branch.id)) {
+      seen.add(branch.id);
+      if(!branch.removed && branch.step.kind!=='home' && branch.step.status==='ready')latest=branch;
+      branch=branch.selectedChildId?nodes.get(branch.selectedChildId):undefined;
+    }
+    node=latest;
+  }
+  if(!node)return;
+  const stepLabels={search:'搜索结果',page:'网站原页',reading:'引用快照',question:'问这页',comparison:'两份来源对照',judgment:'我的判断'};
+  const step=stepLabels[node.step.kind as keyof typeof stepLabels];if(!step)return;
+  let ancestor:typeof node|undefined=node;let title=node.step.label;
+  while(ancestor) {
+    const query=ancestor.step.context?.query || ancestor.metadata.searchContext?.query;
+    if(query){title=query;break;}
+    if(ancestor.step.kind==='page' && ancestor.step.target){title=ancestor.step.target;break;}
+    ancestor=ancestor.parentId?nodes.get(ancestor.parentId):undefined;
+  }
+  return {entryId:node.id,title:Array.from(title).slice(0,100).join(''),step};
 }

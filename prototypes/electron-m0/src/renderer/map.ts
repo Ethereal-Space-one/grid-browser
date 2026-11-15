@@ -13,13 +13,14 @@
     void send('draft',el<HTMLInputElement>('continue-input').value,id);el<HTMLInputElement>('continue-input').focus();}
   async function choose(id?:string){const collapse=chooserCollapsed;chooser=false;chooserCollapsed=false;if(collapse)await send('close');await send(id?'select':'new',id);}
   function dismissChooser(){chooser=false;if(chooserCollapsed){chooserCollapsed=false;void send('close');}else if(state)render(state);el('chain').focus();}
-  function render(next:State){const previous=state;state=next;document.body.dataset.scene=next.scene;document.body.dataset.open=String(next.open);document.body.dataset.orientation=next.orientation;
+  function render(next:State){const previous=state;state=next;document.body.dataset.scene=next.scene;document.body.dataset.open=String(next.open);document.body.dataset.orientation=next.orientation;document.body.dataset.density=next.density;
     if(owner!==next.ownerId || previous?.entryId!==next.entryId && next.draftNode!==draftNode){owner=next.ownerId;draftNode=next.draftNode;el<HTMLInputElement>('continue-input').value=next.draft;chooser=false;}
     if(draftNode&&!next.path.nodes.some(n=>n.id===draftNode)){draftNode=undefined;void send('draft','');}
-    el('chain-name').textContent=next.title;el('count').textContent=`${next.path.nodes.length} 步`;
+    el('chain-name').textContent=next.title;el('chain').title=next.title;el('count').textContent=`${next.path.nodes.length} 步`;
     el('toggle').textContent=next.open?'收起':'展开';el('toggle').setAttribute('aria-expanded',String(next.open));
     el('chain').setAttribute('aria-expanded',String(chooser&&next.open));
-    el('orientation').hidden=!next.open||chooser;el('locate').hidden=!next.open||chooser;
+    el('orientation').hidden=!next.open||chooser;el('locate').hidden=!next.open||chooser;el('density').hidden=!next.open||chooser;
+    el('density').textContent=next.density==='compact'?'舒展地图':'紧凑地图';el('density').setAttribute('aria-label',next.density==='compact'?'切换为舒展地图':'切换为紧凑地图');
     el('orientation').textContent=next.orientation==='horizontal'?'纵向':'横向';
     el('chains').hidden=!next.open||!chooser;el('map-content').hidden=!next.open||chooser;
     el('continue-form').hidden=!draftNode;el('continue-label').textContent='从「'+(next.path.nodes.find(n=>n.id===draftNode)?.label||'所选节点')+'」继续';el('undo').hidden=!next.path.canUndo;
@@ -50,13 +51,14 @@
       if(focus&&document.getElementById(focus))document.getElementById(focus)!.focus({preventScroll:true});
       else if(focus?.startsWith('remove-'))el('undo').focus({preventScroll:true});
     }
-    if(next.open&&(!previous?.open||next.orientation!==previous.orientation||next.entryId!==previous.entryId))requestAnimationFrame(()=>{if(chooser)el('chains').querySelector<HTMLButtonElement>('[aria-current]')?.focus();else locate();});
+    if(next.open&&(!previous?.open||next.orientation!==previous.orientation||next.entryId!==previous.entryId))requestAnimationFrame(()=>{if(chooser)el('chains').querySelector<HTMLButtonElement>('[aria-current]')?.focus();else locate(!previous?.open&&document.hasFocus());});
     if(!next.open&&previous?.open)el('toggle').focus();
   }
-  function locate(){const node=el('graph').querySelector<HTMLElement>('[aria-current="step"]');node?.scrollIntoView({block:'nearest',inline:'center',behavior:'instant'});node?.focus({preventScroll:true});}
+  function locate(focus=true){const node=el('graph').querySelector<HTMLElement>('[aria-current="step"]');node?.scrollIntoView({block:'nearest',inline:'center',behavior:'instant'});if(focus)node?.focus({preventScroll:true});}
   el('toggle').addEventListener('click',()=>{chooser=false;void send(state?.open?'close':'open');});
   el('chain').addEventListener('click',()=>{if(chooser){dismissChooser();return;}chooserCollapsed=!state?.open;chooser=true;if(!state?.open)void send('open');else if(state)render(state);});
-  el('locate').addEventListener('click',locate);
+  el('locate').addEventListener('click',()=>locate());
+  el('density').addEventListener('click',()=>{void send('density',state?.density==='compact'?'expanded':'compact');});
   el('orientation').addEventListener('click',()=>{void send('orientation',state?.orientation==='horizontal'?'vertical':'horizontal');});
   el('undo').addEventListener('click',()=>{void send('undo');});
   el('continue-cancel').addEventListener('click',()=>{const id=draftNode;draftNode=undefined;el('continue-form').hidden=true;void send('draft','');document.getElementById('continue-'+id)?.focus();});

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BrowsingSession, type BrowsingProvider } from './application/browsing-session';
-import { judgmentCitation, QuoteLocator, sameQuoteBinding, type QuoteBinding, type QuoteDomResult } from './application/quote-locator';
+import { judgmentCitation, judgmentQuoteOrigin, QuoteLocator, sameQuoteBinding, type QuoteBinding, type QuoteDomResult } from './application/quote-locator';
 import type { JudgmentCitation } from './contracts/judgment';
 import type { BrowsingState } from './contracts/browsing';
 const quote = 'A unique synthetic quotation, for local tests only.';
@@ -92,4 +92,50 @@ test('stale/forged/unsupported locator IDs and changed binding never inspect the
   await assert.rejects(locator.locate('foreign', get, noPrepare, noPrepare)); set({ ...initial, ownerId: 'foreign' });
   await assert.rejects(locator.locate(id, get, noPrepare, noPrepare));
   locator.start(citation, initial, 'token', false); await assert.rejects(locator.locate(locator.state()!.id, get, noPrepare, noPrepare));
+});
+
+
+test('context return captures an exact edited draft or saved version, with presentation and ordinary Back intact', async () => {
+  const s = await draft(); const j = s.snapshot().judgment!, c = j.citations[0];
+  s.editJudgment({ draftId: j.draftId, revision: 1, text: 'Private synthetic decision', checks: 'Private check', citationIds: [c.id] });
+  for (const saved of [false, true]) {
+    if (saved) s.saveJudgment({ draftId: j.draftId, revision: 1 });
+    const original = s.snapshot();
+    s.savePresentation(original.entryId, { ...original.presentation, scrollTop: 240, addressDraft: 'Synthetic local draft' });
+    const origin = judgmentQuoteOrigin(s.snapshot(), c.id), expected = s.snapshot();
+    s.open(c.url); const page = s.snapshot();
+    assert.equal(s.hasJudgmentQuoteOrigin(origin), true);
+    const locator = new QuoteLocator(() => {});
+    locator.start(c, initial, 'private-token', true, origin);
+    assert.strictEqual(locator.returnOrigin(locator.state()!.id, initial), origin);
+    assert.equal(locator.state()!.returnLabel, '返回判断');
+    const projection = JSON.stringify(locator.state());
+    for (const privateValue of [origin.entryId, origin.recordId, 'private-token', c.quote, expected.judgment!.text, expected.judgment!.checks]) assert.equal(projection.includes(privateValue), false);
+    assert.equal(s.jump(origin.entryId), true);
+    assert.strictEqual(s.snapshot().judgment, expected.judgment); assert.deepEqual(s.snapshot().presentation, expected.presentation);
+    assert.equal(s.navigationTarget(1), page.entryId, 'context return leaves the normal Forward branch intact');
+    s.forward(); s.back(); assert.equal(s.snapshot().entryId, expected.entryId); assert.strictEqual(s.snapshot().judgment, expected.judgment);
+    assert.equal(JSON.stringify(s.exportTask()).includes('returnLabel'), false);
+    assert.equal(JSON.stringify(s.exportTask()).includes('quoteOrigin'), false);
+  }
+});
+
+test('origin checks refuse revisions, removed nodes, foreign entries and unavailable saved references', async () => {
+  const s = await draft(), before = s.snapshot(), j = before.judgment!, c = j.citations[0];
+  const origin = judgmentQuoteOrigin(before, c.id);
+  assert.equal(s.hasJudgmentQuoteOrigin(origin), true);
+  for (const patch of [{entryId:'foreign'}, {recordId:'foreign'}, {revision:99}, {citationId:'foreign'}]) assert.equal(s.hasJudgmentQuoteOrigin({...origin,...patch}),false);
+  s.editJudgment({draftId:j.draftId,revision:1,text:'Newer revision',checks:'',citationIds:[c.id]});
+  assert.equal(s.hasJudgmentQuoteOrigin(origin),false);
+  const revised = judgmentQuoteOrigin(s.snapshot(), c.id); s.removeNode(before.entryId); assert.equal(s.hasJudgmentQuoteOrigin(revised),false);
+});
+
+test('context return requires the full existing visit binding and disappears on any invalidation', () => {
+  const origin = { entryId:'judgment-origin',recordId:'exact-version',revision:3,citationId:citation.id };
+  const locator = new QuoteLocator(() => {}); locator.start(citation,initial,'private-token',true,origin);
+  const id = locator.state()!.id;
+  assert.throws(()=>locator.returnOrigin('foreign',initial)); assert.throws(()=>locator.returnOrigin(id,undefined));
+  for(const key of Object.keys(initial) as (keyof QuoteBinding)[]) assert.throws(()=>locator.returnOrigin(id,{...initial,[key]:key==='webContentsId'?999:'changed'}),key);
+  locator.dismiss(id); assert.throws(()=>locator.returnOrigin(id,initial));
+  locator.start(citation,initial,'new-token'); assert.throws(()=>locator.returnOrigin(locator.state()!.id,initial),'ordinary website opens have no return origin');
 });

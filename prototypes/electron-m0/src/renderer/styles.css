@@ -200,3 +200,11 @@ body .surface, body.agent-open .surface { height: max(0px, calc(100vh - var(--ch
 .search-details summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
 .search-details summary:hover, .search-details summary:active, .search-details[open] summary { color: var(--color-accent); }
 @media (pointer: coarse) { .search-details summary { min-height: 44px; } }
+
+/* One quiet continuation, never a recommendation or history-card grid. */
+.home-resume { display:flex; align-items:baseline; gap:8px 12px; margin:18px 0; flex-wrap:wrap; color:var(--color-muted); font-size:14px; }
+.home-resume[hidden], .home-query-error[hidden] { display:none; }
+.home-resume button { flex:none; border:0; padding:3px 0; border-radius:0; background:transparent; color:var(--color-accent); text-decoration:underline; text-underline-offset:3px; }
+.home-resume-title { min-width:0; max-width:100%; overflow-wrap:anywhere; color:var(--color-ink); }
+.home-resume-step { white-space:nowrap; }
+.welcome p.home-query-error { margin:8px 0 0; font-size:14px; color:var(--color-error, #b4493e); }

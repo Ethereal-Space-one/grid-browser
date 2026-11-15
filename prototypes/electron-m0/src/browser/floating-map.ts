@@ -20,7 +20,7 @@ export class FloatingMap {
     const tab = this.host.active; const state = tab.browsing.snapshot();
     return { ownerId:tab.id, entryId:state.entryId, scene:state.scene, path:state.path, open:tab.pathMapOpen,
       title:tab.label(), tabs:this.host.tabs.all().map((t,i) => {const s=t.browsing.snapshot();return {id:t.id,title:t.label(),count:s.path.nodes.length,last:s.path.nodes.find(n=>n.id===s.entryId)?.label||s.value||'首页',ordinal:i+1};}),
-      orientation:tab.mapOrientation, draft:tab.mapDraft, draftNode:tab.mapDraftNode };
+      orientation:tab.mapOrientation, density:tab.mapDensity, draft:tab.mapDraft, draftNode:tab.mapDraftNode };
   }
   publish() { if(this.ready && this.view && !this.view.webContents.isDestroyed() && this.host.tabs.active()) this.view.webContents.send('grid-map:state', this.state()); }
   suspend(value:boolean) { this.suspended=value;this.host.resize(); }
@@ -54,6 +54,7 @@ export class FloatingMap {
     let tab=valid();
     if(command.kind==='draft'){tab.mapDraft=command.value||'';tab.mapDraftNode=command.nodeId;return;}
     if(command.kind==='orientation'){tab.mapOrientation=command.value==='vertical'?'vertical':'horizontal';this.host.refresh();return;}
+    if(command.kind==='density'){tab.mapDensity=command.value==='expanded'?'expanded':'compact';this.host.refresh();return;}
     if(command.kind==='open' || command.kind==='close') {
       tab.pathMapOpen=command.kind==='open';
       if(tab.pathMapOpen && tab.companion() && this.host.win.getContentSize()[0]<960) {
@@ -73,7 +74,7 @@ export class FloatingMap {
       const input=command.value?.trim(); if(!input)throw new Error('先输入想继续了解的问题或网址');
       const intent=classifyInput(input); await tab.jump(node!);
       if(tab.disposed || this.host.tabs.active()!==tab || tab.browsing.snapshot().entryId!==node)throw new Error('标签已切换，未发起新的探索');
-      tab.mapDraft='';tab.mapDraftNode=undefined;tab.pathMapOpen=false;
+      tab.mapDraft='';tab.mapDraftNode=undefined;
       if(intent.kind==='url') await tab.open(checkedUrl(intent.url));
       else await tab.browsing.search(intent.query,tab.browsing.snapshot().scene,tab.browsing.snapshot().presentation.contextual);
     }

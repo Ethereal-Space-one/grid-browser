@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { checkedUrl, classifyInput } from './intent';
 import { LocalBridge } from './local-bridge';
 import { checkedScene } from './scenes';
-import { argument, chromeLayoutSchema, idSchema, keySchema, presentationSchema, submitOptionsSchema, textInputSchema } from './contracts/browsing';
+import { argument, chromeLayoutSchema, idSchema, keySchema, presentationSchema, submitOptionsSchema, storageResumeSchema, textInputSchema } from './contracts/browsing';
 import { deepSeekProvider } from './providers/deepseek';
 import { judgmentEditSchema, judgmentSaveSchema } from './contracts/judgment';
 import { comparisonSelectorSchema } from './contracts/comparison';
@@ -81,7 +81,7 @@ async function start() {
   });
   ui('grid:storage-panel', (host, open) => { if(typeof open!=='boolean') throw new Error('参数格式无效');host.storagePanelOpen=open;if(open){host.agentPanelOpen=false;host.active.pathMapOpen=false;}host.resize();windows.changed(false); });
   ui('grid:storage-flush', () => windows.flushTasks());
-  ui('grid:storage-restore', (host, id) => windows.restoreTask(argument(idSchema,id),host));
+  ui('grid:storage-restore', (host, id, resume) => windows.restoreTask(argument(idSchema,id),host,argument(storageResumeSchema,resume)));
   ui('grid:storage-delete', (_host, id) => windows.deleteTask(argument(idSchema,id)));
   ui('grid:temporary-path', host => host.newTab(undefined,false));
   ui('grid:state', host => host.state());
@@ -113,12 +113,12 @@ async function start() {
   ui('grid:question', (host, ownerId, entryId) => {
     const tab = currentEntry(host, ownerId, entryId);
     if (tab.browsing.snapshot().mode === 'page' && !tab.identity()) throw new Error('原页仍在变化，请加载完成后再提问');
-    tab.pathMapOpen = false;
     tab.browsing.beginQuestion();
   });
   ui('grid:ask', (host, text, ownerId, entryId, questionId) => currentEntry(host, ownerId, entryId).browsing.ask(argument(textInputSchema, text), argument(idSchema, questionId)));
   ui('grid:judgment-open-citation', (host, citationId, ownerId, entryId) => currentEntry(host, ownerId, entryId).openJudgmentCitation(argument(idSchema, citationId)));
   ui('grid:quote-locate', (host, locatorId, ownerId, entryId) => currentEntry(host, ownerId, entryId).locateQuote(argument(idSchema, locatorId)));
+  ui('grid:quote-return', (host, locatorId, ownerId, entryId) => currentEntry(host, ownerId, entryId).returnQuote(argument(idSchema, locatorId)));
   ui('grid:quote-dismiss', (host, locatorId, ownerId, entryId) => currentEntry(host, ownerId, entryId).dismissQuote(argument(idSchema, locatorId)));
   ui('grid:judgment-begin', (host, ownerId, entryId) => currentEntry(host, ownerId, entryId).browsing.beginJudgment());
   ui('grid:judgment-edit', (host, value, ownerId, entryId) => currentEntry(host, ownerId, entryId).browsing.editJudgment(argument(judgmentEditSchema, value)));

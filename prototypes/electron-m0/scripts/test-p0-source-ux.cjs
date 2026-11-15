@@ -154,7 +154,12 @@ test('snapshot view/location and current website actions have distinct labels, t
     f.emit({ mode: 'page', entryId: 'summary-page', value: source.url, summary: { ...snippetSummary, id: 'page-summary', searchId: 'page:summary-page', pageSource: source } });
     assert.equal(d.querySelector('#page-summary details summary').textContent, '查看引用摘录');
     assert.match(d.querySelector('#page-summary details').textContent, /不含完整正文快照/);
-    assert.match(d.querySelector('#page-summary-status').textContent, /Fetch 来源取得于/);
+    assert.match(d.querySelector('#page-summary-source').textContent, /Fetch 来源取得于/);
+    const evidence = d.querySelector('.page-summary-evidence');
+    assert.equal(evidence.querySelector('blockquote').textContent, quote);
+    assert.equal(evidence.children[1].id, 'page-summary-citations', 'actual excerpt precedes source disclosure');
+    assert.equal(evidence.querySelector('.page-source-details').open, false);
+    assert.equal(d.querySelector('#page-summary-citations').closest('details'), evidence);
     assert.equal(requests.length, count, 'snapshot and excerpt inspection makes no provider request');
   } finally { f.close(); }
 });

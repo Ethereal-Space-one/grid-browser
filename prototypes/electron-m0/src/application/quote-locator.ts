@@ -8,6 +8,12 @@ export type QuoteBinding = Readonly<{
   ownerId: string; entryId: string; documentId: string; webContentsId: number;
   frameToken: string; nativeVisitId: string; url: string;
 }>;
+// Exact in-memory judgment version only. Never sent to the renderer, page, MCP, or storage.
+export type JudgmentQuoteOrigin = Readonly<{ entryId: string; recordId: string; revision: number; citationId: string }>;
+export function judgmentQuoteOrigin(state: BrowsingState, citationId: string): JudgmentQuoteOrigin {
+  judgmentCitation(state, citationId);
+  return Object.freeze({ entryId: state.entryId, recordId: state.judgment!.id, revision: state.judgment!.revision, citationId });
+}
 export type QuoteDomResult = 'prepared' | 'found' | 'ambiguous' | 'missing' | 'unsupported' | 'uncertain';
 const messages: Record<QuoteLocatorStatus, string> = {
   ready: '网站原页已打开，这是网站当前内容，不是引用快照。点击后仅尝试一次逐字定位，不会自动定位、读取表单或发送给模型。',
@@ -34,14 +40,19 @@ export function judgmentCitation(state: BrowsingState, id: string): JudgmentCita
 
 /** One transient lease. It is not stored in the task tree, page permissions, or exported state. */
 export class QuoteLocator {
-  private lease?: { state: QuoteLocatorState; quote: string; binding: QuoteBinding; token: string; attempted: boolean };
+  private lease?: { state: QuoteLocatorState; quote: string; binding: QuoteBinding; token: string; attempted: boolean; origin?: JudgmentQuoteOrigin };
   constructor(private readonly changed: () => void) {}
   state(): QuoteLocatorState | undefined { return this.lease?.state; }
   clear() { if (this.lease) this.lease.quote = ''; this.lease = undefined; }
-  start(citation: JudgmentCitation, binding: QuoteBinding, token: string, supported = true) {
-    this.lease = { binding, token, quote: citation.quote, attempted: false, state: Object.freeze({ id: randomUUID(), citationId: citation.id,
-      sourceTitle: citation.title, sourceUrl: citation.url, status: supported ? 'ready' : 'unsupported', message: messages[supported ? 'ready' : 'unsupported'] }) };
+  start(citation: JudgmentCitation, binding: QuoteBinding, token: string, supported = true, origin?: JudgmentQuoteOrigin) {
+    this.lease = { binding, token, origin, quote: citation.quote, attempted: false, state: Object.freeze({ id: randomUUID(), citationId: citation.id,
+      returnLabel: origin ? '返回判断' : undefined, sourceTitle: citation.title, sourceUrl: citation.url, status: supported ? 'ready' : 'unsupported', message: messages[supported ? 'ready' : 'unsupported'] }) };
     this.changed();
+  }
+  returnOrigin(id: string, binding: QuoteBinding | undefined): JudgmentQuoteOrigin {
+    const lease = this.lease;
+    if (!lease || lease.state.id !== id || !lease.origin || !sameQuoteBinding(lease.binding, binding)) throw new Error('原页或引用已变化，请使用浏览后退或地图返回');
+    return lease.origin;
   }
   dismiss(id: string) {
     if (!this.lease || this.lease.state.id !== id) throw new Error('定位提示已变化，请重新操作');

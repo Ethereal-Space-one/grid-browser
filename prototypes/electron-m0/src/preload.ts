@@ -4,7 +4,7 @@ import type { GridApi, State } from './contracts/browsing';
 contextBridge.exposeInMainWorld('grid', {
   storagePanel: open => ipcRenderer.invoke('grid:storage-panel', open),
   storageFlush: () => ipcRenderer.invoke('grid:storage-flush'),
-  storageRestore: id => ipcRenderer.invoke('grid:storage-restore', id),
+  storageRestore: (id, resume) => ipcRenderer.invoke('grid:storage-restore', id, resume),
   storageDelete: id => ipcRenderer.invoke('grid:storage-delete', id),
   temporaryPath: () => ipcRenderer.invoke('grid:temporary-path'),
   actionPreview: (value: string, ownerId?: string) => ipcRenderer.invoke('grid:action-preview', value, ownerId),
@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('grid', {
   ask: (question, ownerId, entryId, questionId) => ipcRenderer.invoke('grid:ask', question, ownerId, entryId, questionId),
   judgmentOpenCitation: (citationId, ownerId, entryId) => ipcRenderer.invoke('grid:judgment-open-citation', citationId, ownerId, entryId),
   quoteLocate: (locatorId, ownerId, entryId) => ipcRenderer.invoke('grid:quote-locate', locatorId, ownerId, entryId),
+  quoteReturn: (locatorId, ownerId, entryId) => ipcRenderer.invoke('grid:quote-return', locatorId, ownerId, entryId),
   quoteDismiss: (locatorId, ownerId, entryId) => ipcRenderer.invoke('grid:quote-dismiss', locatorId, ownerId, entryId),
   judgmentBegin: (ownerId, entryId) => ipcRenderer.invoke('grid:judgment-begin', ownerId, entryId),
   judgmentEdit: (edit, ownerId, entryId) => ipcRenderer.invoke('grid:judgment-edit', edit, ownerId, entryId),

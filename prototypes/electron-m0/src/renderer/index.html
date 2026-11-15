@@ -41,11 +41,11 @@
     </nav>
 
     <div id="page-tools" hidden><span id="page-scene"></span><button id="summarize-page" type="button">总结这页</button><details id="page-more"><summary>更多</summary><div><button id="page-clean" type="button" title="重新获取公开正文，形成带取得时间的固定文本">获取引用快照</button><button id="page-map" type="button">查看地图与活动</button></div></details></div>
-    <section id="page-summary" aria-label="网页总结" hidden><div class="page-summary-heading"><strong>这页说了什么</strong><span id="page-summary-status" role="status"></span><button id="page-summary-stop" type="button" hidden>停止</button><button id="page-summary-close" type="button" aria-label="收起网页总结">×</button></div><p class="page-summary-scope">主动获取公开正文，最多 16000 字符发给 DeepSeek；不含登录态或实时动态内容。</p><div class="page-summary-scroll"><p id="page-summary-text"></p><details><summary>查看引用摘录</summary><p>这是取得时固定的引用摘录，不含完整正文快照，也不是网站当前内容。</p><div id="page-summary-citations"></div></details></div></section>
+    <section id="page-summary" aria-label="网页总结" hidden><div class="page-summary-heading"><strong>这页说了什么</strong><span id="page-summary-status" role="status"></span><button id="page-summary-stop" type="button" hidden>停止</button><button id="page-summary-close" type="button" aria-label="收起网页总结">×</button></div><div class="page-summary-scroll" tabindex="0" aria-label="总结与引用摘录"><p id="page-summary-text"></p><details class="page-summary-evidence"><summary>查看引用摘录</summary><div id="page-summary-citations"></div><details class="page-source-details"><summary>来源与取得时间</summary><p id="page-summary-source"></p><p>这是取得时固定的引用摘录，不含完整正文快照，也不是网站当前内容。</p><p class="page-summary-scope">主动获取公开正文，最多 16000 字符发给 DeepSeek；不含登录态或实时动态内容。</p></details></details></div></section>
     <section id="quote-locator-bar" aria-label="网站原页引文定位" hidden>
       <div class="quote-locator-context"><strong>网站原页引文定位</strong><span id="quote-locator-source"></span></div>
       <p id="quote-locator-message"></p>
-      <div id="quote-locator-controls" class="quote-locator-controls"><button id="quote-locate" aria-describedby="quote-locator-message" class="grid-control" data-variant="primary" data-size="compact" type="button">定位这段引文</button><button id="quote-dismiss" class="grid-control" data-size="compact" type="button" aria-label="关闭引文定位">关闭</button></div>
+      <div id="quote-locator-controls" class="quote-locator-controls"><button id="quote-locate" aria-describedby="quote-locator-message" class="grid-control" data-variant="primary" data-size="compact" type="button">定位这段引文</button><button id="quote-return" class="grid-control" data-size="compact" type="button" hidden>返回判断</button><button id="quote-dismiss" class="grid-control" data-size="compact" type="button" aria-label="关闭引文定位">关闭</button></div>
     </section>
     <nav id="path-bar" class="path-bar" aria-label="当前浏览路径" hidden>
       <ol id="path-trail" class="path-trail"></ol>
@@ -53,6 +53,10 @@
       <button id="path-toggle" class="path-toggle" type="button" aria-expanded="false" aria-controls="path-map"><span class="path-toggle-label">地图</span><span class="path-chevron" aria-hidden="true">›</span></button>
     </nav>
     <div id="aux-panels">
+    <section id="failure-exits" aria-label="请求未完成后的选择" hidden>
+      <p id="failure-message" role="status"></p><p id="failure-source" hidden></p>
+      <div class="failure-actions"><button id="failure-configure" type="button" hidden>设置本次搜索服务</button><button id="failure-original" type="button" hidden>打开这次请求的网站原页</button><button id="failure-back" type="button" hidden>返回上一步</button></div>
+    </section>
     <section id="storage-panel" class="storage-panel understanding" aria-labelledby="storage-title" hidden>
       <div class="understanding-heading"><h2 id="storage-title" tabindex="-1">本地记录</h2><div class="understanding-actions"><button id="storage-save" type="button">立即保存</button><button id="storage-temporary" type="button">新建非持久路径</button><button id="storage-close" type="button">收起</button></div></div>
       <p id="storage-status" role="status"></p>
@@ -95,8 +99,8 @@
       <section id="welcome" class="welcome">
         <div class="eyebrow">GRID · 开发者预览</div>
         <h1>从一个问题开始。</h1>
-        <p>选择这次的场景，找到资料，再决定下一步。也可以直接打开网址。</p>
-        <fieldset class="scene-picker"><legend>这次，你想怎样探索？</legend>
+        <p>直接输入问题或网址即可开始。五种场景只是可选的探索方式，不必先选。</p>
+        <fieldset class="scene-picker"><legend>可选：这次想怎样探索？</legend>
           <label><input type="radio" name="scene" value="professional" checked><span>专业</span></label>
           <label><input type="radio" name="scene" value="learning"><span>学习</span></label>
           <label><input type="radio" name="scene" value="living"><span>生活</span></label>
@@ -104,10 +108,15 @@
           <label><input type="radio" name="scene" value="inspiration"><span>灵感</span></label>
         </fieldset>
         <p id="scene-hint" class="scene-hint" role="status">查依据，重事实，核对原始来源。</p>
-        <form id="home-search" class="home-search"><label class="sr-only" for="home-query">搜索问题或网址</label><input id="home-query" placeholder="现在，你想了解什么？" autocomplete="off"><button type="submit">开始探索 ↗</button></form>
+        <form id="home-search" class="home-search"><label class="sr-only" for="home-query">搜索问题或网址</label><input id="home-query" aria-describedby="home-query-error" placeholder="现在，你想了解什么？" autocomplete="off"><button type="submit">开始探索 ↗</button></form>
+        <p id="home-query-error" class="home-query-error" role="alert" hidden></p>
+        <div id="home-resume" class="home-resume" hidden>
+          <button id="home-resume-button" type="button" aria-describedby="home-resume-title home-resume-step">继续上次</button>
+          <span id="home-resume-title" class="home-resume-title"></span><span id="home-resume-step" class="home-resume-step"></span>
+        </div>
         <label class="contextual-option"><input id="contextual-search" type="checkbox" checked>按场景优化搜索 <span>仅用于这次主动查询，不生成推荐流</span></label>
         <div id="setup" class="setup" role="status"></div>
-        <details class="provider-settings">
+        <details id="provider-settings" class="provider-settings">
           <summary>搜索服务设置</summary>
           <p id="provider-key-hint">仅需 DeepSeek API key，不需要电脑登录密码。密钥仅用于本次运行，不保存到磁盘；完全退出 Grid 后需重新填写。</p>
           <form id="provider-form">
@@ -200,6 +209,8 @@
     <script src="judgment.js"></script>
     <script src="storage.js"></script>
     <script src="reading-shell.js"></script>
+    <script src="home-entry.js"></script>
+    <script src="failure-exits.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>

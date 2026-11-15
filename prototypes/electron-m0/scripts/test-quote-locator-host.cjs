@@ -82,3 +82,68 @@ test('load completion waits for stop-loading without weakening loading identity,
     assert.equal(await wait, !changed); assert.equal(web.listenerCount('did-stop-loading'), 0); assert.equal(web.listenerCount('destroyed'), 0);
   }
 });
+
+
+test('context return uses only the host-owned exact origin and consumes the old lease', async () => {
+  const { target, id } = context();
+  const origin = {entryId:'exact-judgment-entry',recordId:'exact-saved-version',revision:3,citationId:citation.id};
+  target.quoteLocator.start(citation,binding,'token',true,origin); const currentId=target.quoteLocator.state().id;
+  const jumps=[]; target.browsing={hasJudgmentQuoteOrigin:expected=>{assert.strictEqual(expected,origin);return true;}};
+  target.jump=async entry=>{jumps.push(entry);target.quoteLocator.clear();};
+  await assert.rejects(BrowserTab.prototype.returnQuote.call(target,id));
+  await BrowserTab.prototype.returnQuote.call(target,currentId);
+  assert.deepEqual(jumps,[origin.entryId]); await assert.rejects(BrowserTab.prototype.returnQuote.call(target,currentId));
+});
+
+test('context return refuses stale visits and unavailable origin versions without falling back or opening anything', async () => {
+  for(const stale of ['binding','origin']){
+    const {target}=context(); const origin={entryId:'origin',recordId:'version',revision:0,citationId:citation.id};
+    target.quoteLocator.start(citation,binding,'token',true,origin); const id=target.quoteLocator.state().id;
+    target.browsing={hasJudgmentQuoteOrigin:()=>stale!=='origin'};
+    if(stale==='binding')target.quoteBinding=()=>({...binding,nativeVisitId:'same-url-different-visit'});
+    target.jump=()=>assert.fail('stale return must not navigate');
+    assert.equal(BrowserTab.prototype.quoteState.call(target).returnLabel,undefined);
+    await assert.rejects(BrowserTab.prototype.returnQuote.call(target,id));
+  }
+});
+
+test('returning during a locate invalidates the lease before a late prepare can dispatch a scroll', async () => {
+  const {target}=context(); const origin={entryId:'origin',recordId:'version',revision:0,citationId:citation.id};
+  target.quoteLocator.start(citation,binding,'token',true,origin); const id=target.quoteLocator.state().id;
+  const wait=deferred();target.quoteCommand=command=>command.kind==='prepare'?wait.promise:assert.fail('return cancelled the effect');
+  target.browsing={hasJudgmentQuoteOrigin:()=>true};target.jump=async()=>target.quoteLocator.clear();
+  const locating=BrowserTab.prototype.locateQuote.call(target,id);
+  await BrowserTab.prototype.returnQuote.call(target,id);wait.resolve('prepared');await locating;
+  assert.equal(target.quoteLocator.state(),undefined);
+});
+
+
+test('production host return restores the exact draft/saved object and reading position without any native or provider call', async () => {
+  const {judgmentQuoteOrigin}=require('../dist/application/quote-locator.js');
+  const requests=[];let tab;
+  const host={refresh(){},tabs:{active:()=>tab},registry:{target:undefined,bridge:()=>undefined,changed(){}}};
+  tab=new BrowserTab(host,{
+    search:async()=>assert.fail('unexpected search'),
+    read:async()=>{requests.push('read');return {title:citation.title,content:quote};},
+    extract:async()=>assert.fail('unexpected extraction'),
+    model:async()=>{requests.push('model');return {text:'Synthetic only',insufficient:false,citations:[{source:1,title:citation.title,url:citation.url,quote}]};}
+  });
+  await tab.browsing.read(citation.url);tab.browsing.beginQuestion();await tab.browsing.ask('Synthetic?',tab.browsing.snapshot().question.id);tab.browsing.beginJudgment();
+  let j=tab.browsing.snapshot().judgment;const c=j.citations[0];
+  tab.browsing.editJudgment({draftId:j.draftId,revision:1,text:'Synthetic private judgment',checks:'Synthetic private checks',citationIds:[c.id]});
+  for(const saved of [false,true]){
+    if(saved)tab.browsing.saveJudgment({draftId:j.draftId,revision:1});
+    const before=tab.browsing.snapshot();tab.browsing.savePresentation(before.entryId,{...before.presentation,scrollTop:333});
+    const original=tab.browsing.snapshot(),origin=judgmentQuoteOrigin(original,c.id);
+    tab.browsing.open(c.url);const source=tab.browsing.snapshot();
+    tab.quoteBinding=()=>({...binding,ownerId:source.ownerId,entryId:source.entryId});
+    tab.quoteLocator.start(c,tab.quoteBinding(),'synthetic-token',true,origin);
+    const id=tab.quoteLocator.state().id;assert.equal(tab.quoteState().returnLabel,'返回判断');
+    tab.ensureView=()=>assert.fail('return must never create or load native content');
+    await tab.returnQuote(id);
+    const after=tab.browsing.snapshot();assert.equal(after.entryId,original.entryId);assert.strictEqual(after.judgment,original.judgment);assert.deepEqual(after.presentation,original.presentation);
+    assert.equal(tab.recovery,undefined);assert.equal(tab.quoteState(),undefined);assert.equal(tab.browsing.navigationTarget(1),source.entryId);
+    await assert.rejects(tab.returnQuote(id));
+  }
+  assert.deepEqual(requests,['read','model']);
+});

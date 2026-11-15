@@ -1,8 +1,9 @@
 import { FloatingMap } from './floating-map';
-import { QuoteLocator, judgmentCitation, sameQuoteBinding, type QuoteBinding, type QuoteDomResult } from '../application/quote-locator';
+import { NativeViewport } from './native-viewport';
+import { QuoteLocator, judgmentCitation, judgmentQuoteOrigin, sameQuoteBinding, type QuoteBinding, type QuoteDomResult } from '../application/quote-locator';
 import { QUOTE_LOCATOR_WORLD, quoteDomScript } from './quote-dom';
 import { TaskRepository } from '../storage/task-repository';
-import type { StoredTask, Workspace } from '../contracts/task-storage';
+import { taskContinuation, type StoredTask, type Workspace } from '../contracts/task-storage';
 import { BrowserWindow, WebContentsView, session, dialog } from 'electron';
 import { randomUUID } from 'node:crypto';
 import type { IpcMainInvokeEvent } from 'electron';
@@ -10,7 +11,7 @@ import { BrowsingSession } from '../application/browsing-session';
 import { TabRegistry } from '../application/tab-registry';
 import type { BrowsingProvider } from '../application/browsing-session';
 import { NativeVisits, type NativeMethod, type NativePosition, type NativeVisit } from './native-visits';
-import type { ChromeLayout, PageRecovery, State } from '../contracts/browsing';
+import type { ChromeLayout, PageRecovery, State, StorageResumeRequest } from '../contracts/browsing';
 import type { LocalBridge, PageIdentity } from '../local-bridge';
 import { FormAction } from '../form-action';
 import { checkedUrl } from '../intent';
@@ -36,6 +37,7 @@ export class BrowserTab {
   recovery?: PageRecovery;
   pathMapOpen = false;
   mapOrientation: 'horizontal'|'vertical' = 'horizontal';
+  mapDensity: 'compact'|'expanded' = 'compact';
   mapDraft = '';
   mapDraftNode?: string;
   title = '';
@@ -288,7 +290,9 @@ export class BrowserTab {
     return this.quoteOpening === opening && this.browsing.snapshot().entryId === entryId && this.view?.webContents === web && !web.isDestroyed() && !web.isLoadingMainFrame();
   }
   async openJudgmentCitation(id: string) {
-    const citation = judgmentCitation(this.browsing.snapshot(), id);
+    const originState = this.browsing.snapshot();
+    const citation = judgmentCitation(originState, id);
+    const origin = judgmentQuoteOrigin(originState, id);
     const loading = this.open(citation.url);
     const openedOperation = this.operation;
     const opening = this.quoteOpening = {};
@@ -307,7 +311,7 @@ export class BrowserTab {
     }
     if (this.quoteOpening !== opening || !sameQuoteBinding(binding, this.quoteBinding())) { if (pageToken) this.clearQuoteToken(pageToken); return; }
     this.quoteOpening = undefined;
-    this.quoteLocator.start(citation, binding, token, supported);
+    this.quoteLocator.start(citation, binding, token, supported, origin);
   }
   async locateQuote(id: string) {
     const state = this.quoteLocator.state();
@@ -317,6 +321,21 @@ export class BrowserTab {
       await this.quoteLocator.locate(id, () => this.quoteBinding(),
         (token, quote) => this.quoteCommand({ kind: 'prepare', token, quote }), token => this.quoteCommand({ kind: 'apply', token }));
     } finally { if (token) this.clearQuoteToken(token); }
+  }
+  quoteState() {
+    const state = this.quoteLocator.state();
+    if (!state?.returnLabel) return state;
+    try {
+      const origin = this.quoteLocator.returnOrigin(state.id, this.quoteBinding());
+      if (this.browsing.hasJudgmentQuoteOrigin(origin)) return state;
+    } catch { /* A stale context never advertises a return capability. */ }
+    return { ...state, returnLabel: undefined };
+  }
+  async returnQuote(id: string) {
+    const origin = this.quoteLocator.returnOrigin(id, this.quoteBinding());
+    if (!this.browsing.hasJudgmentQuoteOrigin(origin)) throw new Error('当时的判断版本已变化或不再可用；未切换到其他版本，请使用地图核对');
+    // A local non-page jump only: no URL, native history, Fetch, model, or Agent operation.
+    await this.jump(origin.entryId);
   }
   dismissQuote(id: string) { this.quoteLocator.dismiss(id); this.clearQuoteToken(); }
   async open(url: string) {
@@ -329,6 +348,21 @@ export class BrowserTab {
     try { await this.ensureView().webContents.loadURL(operation.url); }
     catch { if (this.operation === operation) this.fail('failed', '页面未能加载；保留路径，可重新打开地址。'); }
     await operation.done;
+  }
+  /** Home continuation restores saved context, never native history, network, model work, or authority. */
+  resumeStoredNode(id:string) {
+    const task=this.browsing.exportTask();
+    if(taskContinuation(task)?.entryId!==id)throw new Error('上次位置已变化，请从首页重新选择');
+    const target=task.nodes.find(node=>node.id===id)!;
+    const before=this.browsing.snapshot();const position=this.position();
+    const visit=position && this.visits.resolve(before.nativeVisitId,position);
+    const sameLivePage=before.entryId===id && before.mode==='page' && !this.operation && !this.recovery
+      && visit && visit.index===position!.index && visit.url===before.value;
+    this.cancelQuote();this.abortOperation();this.invalidateDocument();
+    this.recovery=target.step.kind==='page' && !sameLivePage ? Object.freeze({id:randomUUID(),nodeId:id,url:target.metadata.value,kind:'history-lost',
+      message:'已恢复上次的网页位置，尚未加载。重新打开只访问地址，不重发表单或恢复旧授权。'}) : undefined;
+    this.mutate(()=>{if(before.entryId===id)this.browsing.cancel();else this.browsing.jump(id);});
+    this.host.refresh();
   }
   async jump(id: string) {
     const state = this.browsing.snapshot();
@@ -405,6 +439,7 @@ export class WindowHost {
   private layoutLeft = 0;
   private layoutRight = 0;
   private syncing = false;
+  private readonly viewport = new NativeViewport();
   disposed = false;
   constructor(readonly registry: WindowRegistry) {
     this.win = new BrowserWindow({ width: 1180, height: 820, minWidth: 720, minHeight: 480, title: 'Grid · M0', backgroundColor: '#f5f5f7',
@@ -446,12 +481,13 @@ export class WindowHost {
       tabs: this.tabs.all().map(t => ({ id: t.id, title: t.label(), mode: t.browsing.snapshot().mode, pending: Boolean(t.browsing.snapshot().pending) })),
       keyReady: this.registry.keyReady(), hasResults: Boolean(s.searchContext), agentPanelOpen: this.agentPanelOpen, agentTarget,
       storage: { ...this.registry.storageState(), persistent: tab.persistent }, storagePanelOpen: this.storagePanelOpen,
-      quoteLocator: tab.quoteLocator.state(), companion:tab.companion(), pageRecovery: tab.recovery, pathMapOpen: tab.pathMapOpen, layoutId: this.layoutId,
+      quoteLocator: tab.quoteState(), companion:tab.companion(), pageRecovery: tab.recovery, pathMapOpen: tab.pathMapOpen, layoutId: this.layoutId,
       action: tab.action.state(), agent: raw && (agentTarget ? raw : { ...raw, page: undefined, connections: raw.connections.map(c => ({ ...c, authorized: false })) }) };
   }
   publish() { if (this.ready && !this.disposed && !this.win.isDestroyed() && this.tabs.active()) { this.win.webContents.send('grid:state', this.state()); this.map.publish(); } }
   detach() {
     const previous = this.attached; this.attached = undefined;
+    this.viewport.hide(previous);
     if (previous && !this.win.isDestroyed()) this.win.contentView.removeChildView(previous);
   }
   refresh() {
@@ -481,10 +517,14 @@ export class WindowHost {
     // Until the trusted chrome is measured, leave no native surface over its controls.
     const top = this.layoutTop ?? height;
     const pageWidth=Math.max(0,width-this.layoutLeft-this.layoutRight);
-    this.attached?.setBounds({ x: this.layoutLeft, y: top, width: pageWidth, height: Math.max(0, height - top) });
+    const attached = this.attached;
+    // Hiding until measurement is safe without giving a live document a
+    // transient zero-height viewport (which can itself clamp its scroll).
+    if (!this.layoutReady) this.viewport.hide(attached);
+    else if (attached) this.viewport.resize(attached, { x: this.layoutLeft, y: top, width: pageWidth, height: Math.max(0, height - top) }, () => this.attached === attached && this.layoutReady && !this.disposed);
     const open=tab?.pathMapOpen; const available=Math.max(0,pageWidth-24);
     const dockWidth=Math.min(available,open ? tab?.mapOrientation==='vertical'?360:940 : 350);
-    const dockHeight=Math.max(0,Math.min(open?310:60,height-top-24));
+    const dockHeight=Math.max(0,Math.min(open?tab?.mapDensity==='expanded'?310:220:60,height-top-24));
     this.map.resize({x:this.layoutLeft+Math.floor((pageWidth-dockWidth)/2),y:height-dockHeight-12,width:dockWidth,height:dockHeight},
       Boolean(this.ready && this.layoutReady && tab && (tab.pathMapOpen || tab.browsing.snapshot().path.nodes.length>1 || tab.browsing.snapshot().path.canUndo) && dockWidth>140 && dockHeight>=44));
   }
@@ -554,7 +594,26 @@ export class WindowRegistry {
     await Promise.all(this.all().filter(h => h.ready && !h.disposed && !h.closing && !h.win.isDestroyed() && Boolean(h.tabs.active())).map(h => h.win.webContents.executeJavaScript('window.gridFlushDrafts ? window.gridFlushDrafts() : true').catch(error => { if (!h.disposed && !h.closing && !h.win.isDestroyed()) throw error; })));
     this.captureNow(); await this.storage?.flush();
   }
-  async restoreTask(id:string, host:WindowHost) {
+  async restoreTask(id:string, host:WindowHost, resume?:StorageResumeRequest) {
+    if(resume) {
+      // Validate the initiating trusted Home before touching any tab, request, or authority.
+      const origin=host.active;const state=origin.browsing.snapshot();
+      if(!origin.persistent || state.mode!=='home' || state.pending || state.ownerId!==resume.ownerId || state.entryId!==resume.entryId)
+        throw new Error('首页位置已变化，请重新选择继续上次');
+      const existing=this.all().flatMap(window=>window.tabs.all().map(tab=>({window,tab})))
+        .find(({tab})=>tab.persistent && tab.browsing.snapshot().path.id===id);
+      const task=existing?existing.tab.browsing.exportTask():this.storage?.get(id);
+      if(!task || this.storage?.isDeleted(id) || taskContinuation(task)?.entryId!==resume.nodeId)
+        throw new Error('上次位置已变化，请从首页重新选择');
+      if(existing) {
+        existing.tab.resumeStoredNode(resume.nodeId);existing.window.select(existing.tab.id);
+        this.chooseTarget(existing.window);existing.window.win.show();existing.window.win.focus();
+      } else {
+        const restored={...task,currentId:resume.nodeId};
+        await host.newTab(undefined,true,restored);
+      }
+      return;
+    }
     for (const window of this.all()) {const tab=window.tabs.all().find(t => t.browsing.snapshot().path.id===id);if(tab){window.select(tab.id);this.chooseTarget(window);window.win.show();window.win.focus();return;}}
     if (!this.storage) throw new Error('本地保存尚未就绪');await host.newTab(undefined,true,this.storage.get(id));
   }

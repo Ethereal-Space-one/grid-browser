@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { z } from 'zod';
-import { parseTask, workspaceSchema, PATH_BYTES, TOTAL_BYTES, PATH_LIMIT, type StorageState, type StoredTask, type Workspace } from '../contracts/task-storage';
+import { parseTask, taskContinuation, workspaceSchema, PATH_BYTES, TOTAL_BYTES, PATH_LIMIT, type StorageState, type StoredTask, type Workspace } from '../contracts/task-storage';
 const hash = (text:string|Buffer) => createHash('sha256').update(text).digest('hex');
 const uuid = z.uuid(), stamp = z.iso.datetime();
 const manifestSchema = z.object({ version:z.literal(1), generation:uuid, committedAt:stamp, workspace:workspaceSchema,
@@ -41,7 +41,7 @@ export class TaskRepository {
   writes = 0;
   constructor(readonly directory:string, private changed:()=>void = ()=>{}, private options:{delay?:number;checkpoint?:(point:CommitPoint)=>Promise<void>}={}) {}
   state():StorageState { return {status:this.status,message:this.message,generation:this.generation,committedAt:this.committedAt,
-    paths:[...this.tasks.values()].map(t=>({id:t.task.id,title:t.title,step:t.task.nodes.find(n=>n.id===t.task.currentId)?.step.label,updatedAt:t.updatedAt,nodes:t.task.nodes.length})).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)),limit:PATH_LIMIT,bytes:[...this.tasks.values()].reduce((n,t)=>n+Buffer.byteLength(t.text),0)}; }
+    paths:[...this.tasks.values()].map(t=>({id:t.task.id,title:t.title,step:t.task.nodes.find(n=>n.id===t.task.currentId)?.step.label,updatedAt:t.updatedAt,nodes:t.task.nodes.length,continuation:taskContinuation(t.task)})).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)),limit:PATH_LIMIT,bytes:[...this.tasks.values()].reduce((n,t)=>n+Buffer.byteLength(t.text),0)}; }
   private notify(status:StorageState['status'],message?:string) { const changed=this.status!==status||this.message!==message;this.status=status;this.message=message;if(changed)this.changed(); }
   private async read(file:string,max:number):Promise<Buffer> { const info=await fs.lstat(file);if(!info.isFile()||info.isSymbolicLink()||info.size>max)throw new Error('Invalid task file');const data=await fs.readFile(file);if(data.length>max)throw new Error('Task file too large');return data; }
   async load():Promise<Workspace> {

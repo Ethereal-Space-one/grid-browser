@@ -4,7 +4,25 @@ Grid 是从用户意图出发的开源浏览器：让人更快找到、理解并
 
 从 [PLAN.md](./PLAN.md) 的用户目标开始，技术路线和验收门槛见 [TECHNICAL_PLAN.md](./TECHNICAL_PLAN.md)。Grid 早期使用 Lattice 开发代号；实验性 `.lattice` 证据格式是独立的按需能力。
 
-当前版本 **0.2.0 开发者预览**：同窗阅读、探索标签与底部浮动链式地图、本地任务恢复，API key 仅本次运行使用，不触发钥匙串密码提示。变更、验证及边界见[0.2.0 发布说明](./docs/releases/0.2.0.md)；下载见 [GitHub Releases](https://github.com/Ethereal-Space-one/grid-browser/releases)。
+当前源码版本 **0.2.1 开发者预览**：在 0.2.0 的同窗阅读与本地任务恢复上，改进选资料对照、引用快照与网站原页的区分、首页继续上次、判断引文返回，以及总结和地图的阅读空间。API key 仅本次运行使用，不触发钥匙串密码提示。变更和验证边界见 [0.2.1 发布说明](./docs/releases/0.2.1.md)。公开标签和可下载文件以 [GitHub Releases](https://github.com/Ethereal-Space-one/grid-browser/releases) 为准；旧版 0.2.0 包不包含本次修正。
+
+## 开始使用当前 Electron 原型
+
+需要 Node.js 22.12+；CI 使用 Node.js 24。macOS 是当前预览目标，Linux/Windows 的构建与契约检查不代表这两个平台的安装或日用能力已验收。
+
+```sh
+cd prototypes/electron-m0
+npm ci
+npm start
+```
+
+没有服务 key 也可直接浏览网址。需要搜索、公开正文或模型问答时，在首页「搜索服务设置」输入自己的 DeepSeek API key，点击「本次启用」；不要输入电脑登录密码。当前步骤和不需要 key 的本地例子见 [0.2.1 试用指南](./docs/TRY_GRID_0.2.1.md)，完整运行和检查命令见 [Electron 原型说明](./prototypes/electron-m0/README.md)。
+
+`prototypes/reading-flow/` 是离线合成的设计参考，不是应用下载或当前生产实现。Swift/WebKit 仅是冻结的历史对照，运行方式单独列在下方。
+
+## 历史阶段记录
+
+以下日期、检查数量和本机包路径记录各阶段当时的状态，不代表 0.2.1 的发布包或最终检查结果。
 
 v0.1.0 的本机预览及三项试用任务见[开发者预览说明](./docs/DEVELOPER_PREVIEW_2026-11-04.md)。下一阶段的候选比较、源码发现与实验顺序见[架构调查](./docs/ARCHITECTURE_RESEARCH_2026-11-04.md)及[ADR 0002 提案](./docs/adr/0002-next-stage-architecture.md)；最终内核尚未选定。
 
@@ -20,7 +38,7 @@ v0.1.0 的本机预览及三项试用任务见[开发者预览说明](./docs/DEV
 - `Sources/GridBrowserProbe/main.swift`：已冻结的 Swift 6/AppKit/WebKit 对照样机，包含地址栏、前进后退、重载、标签和真实网页。
 - `fixtures/web/`：本地导航、动态表单、iframe、下载及 VP9/Opus 音视频/字幕夹具。
 - `prototypes/search-lab/`：可交互的结果优先搜索页，用录制数据验证信息层级与失败状态；不执行实时检索。
-- `prototypes/electron-m0/`：Electron v0.2.0 原型，支持网址直达、DeepSeek Search/Fetch、五场景提取、真实原页、MCP 授权读取和本地固定字段提案/确认；运行方法和未完成项见[原型说明](./prototypes/electron-m0/README.md)。
+- `prototypes/electron-m0/`：Electron v0.2.1 原型，支持网址直达、DeepSeek Search/Fetch、五场景提取、真实原页、MCP 授权读取和本地固定字段提案/确认；运行方法和未完成项见[原型说明](./prototypes/electron-m0/README.md)。
 - `docs/T0_TASKS.md`：30 个可复跑用户任务（含 Agent 预览/接管和媒体/会议）；`docs/t0-results.template.csv` 是记录模板，参与者原始记录不进入 Git。
 - `docs/BROWSER_FOUNDATIONS.md`：媒体、会议与日用网页能力矩阵；说明 Video.js 在 Grid 中的适用边界。
 - `docs/media-results.template.csv`：媒体格式、实际播放与系统行为的记录模板；原始记录不进入 Git。
@@ -28,9 +46,9 @@ v0.1.0 的本机预览及三项试用任务见[开发者预览说明](./docs/DEV
 - `scripts/build-chromium-g1.sh`：在固定 stable 提交上同步 DEPS、生成独立 GN 配置并构建 `chrome`；完整复现步骤见 [Chromium G1 构建说明](./docs/BUILD_CHROMIUM.md)。本仓库不包含 Chromium 源码、工具链或构建产物。
 - `scripts/smoke-chromium-g1.sh`：构建完成后用临时资料档启动 Chromium，验证本地页面能被渲染。
 
-## 在 macOS 运行样机
+## 历史 Swift/WebKit 样机（已冻结）
 
-需要 macOS 14+ 与 Xcode/Swift 6 工具链。
+这不是当前 Electron 产品的启动方式。仅复现历史对照时，需要 macOS 14+ 与 Xcode/Swift 6 工具链。
 
 ```sh
 swift test
@@ -53,4 +71,4 @@ python3 scripts/serve-fixtures.py
 
 Swift 样机搜索使用外部 Bing 页面且已冻结。Electron 的搜索/Fetch/原页与 MCP 读取已有[实测](./docs/SMOKE_ELECTRON_2026-11-02.md)，Codex CLI 与 Claude Code 也通过了[合成页面读取](./docs/SMOKE_HOSTS_2026-11-03.md)和[受限填写提案](./docs/UX_HOST_FORMS_2026-11-03.md)。五场景真实接口、系统外观、key 存储及本机 app smoke 见[预览记录](./docs/DEVELOPER_PREVIEW_2026-11-04.md)。这些不证明真人收益、提取忠实度、通用表单或正式安全模型。
 
-目前已有内存中的窗口/标签、混合导航及可点击分支地图，任务退出恢复已有本机验证，仍缺下载、站点权限等日用基础及广泛站点兼容；V01–V02 媒体/会议、跨机器安装、公证和安全更新尚未验收。本机链式地图和任务恢复已有自动证据，独立试用包与步骤见[试用说明](./docs/TRIAL_CHAIN_MAP_2026-11-05.md)；真人任务基线与内容质量由用户评价。接续工程先完成同窗首版的真人验收、系统窗口/视觉检查及已列出的交互缺口，再做受限动作结果核对、可替换检索与分发。Chromium fork 尚未获选，完整内核构建不作为当前前置；证据格式继续后置。
+目前已有内存中的窗口/标签、混合导航及可点击分支地图，任务退出恢复已有本机验证，仍缺下载、站点权限等日用基础及广泛站点兼容；V01–V02 媒体/会议、跨机器安装、公证和安全更新尚未验收。本机链式地图和任务恢复已有自动证据，独立试用包与步骤见[试用说明](./docs/TRIAL_CHAIN_MAP_2026-11-05.md)；真人任务基线与内容质量由用户评价。本轮交互已获项目所有者确认；这不等于广泛真人收益、真实内容质量、辅助技术或跨机器安装已验收。后续仍需系统窗口/视觉检查及已列出的交互缺口，再做受限动作结果核对、可替换检索与分发。Chromium fork 尚未获选，完整内核构建不作为当前前置；证据格式继续后置。

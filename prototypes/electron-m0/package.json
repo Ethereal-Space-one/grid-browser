@@ -1,6 +1,6 @@
 {
   "name": "grid-electron-m0",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Grid M0 value prototype",
   "main": "dist/main.js",
@@ -37,7 +37,9 @@
     "test:quote:setup": "npm ci --prefix scripts/quote-regression/deps",
     "test:quote:dom": "npm run build && node --test scripts/quote-regression/quote-location.test.cjs && node scripts/quote-regression/locator-ui-dom.cjs && node --test scripts/test-quote-locator-dom.cjs",
     "test:e2e:quotes": "npm run build && electron scripts/e2e-quote-locator.cjs",
-    "test:reading:dom": "npm run build && node --test scripts/test-reading-space-dom.cjs"
+    "test:reading:dom": "npm run build && node --test scripts/test-reading-space-dom.cjs",
+    "test:comparison:dom": "npm run build && node --test scripts/test-comparison-reading-hierarchy.cjs",
+    "test:release:dom": "npm run test:home && npm run test:context-return && npm run test:p0:ux && npm run test:quote:dom && npm run test:reading:dom && npm run test:comparison:dom"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.4.0",

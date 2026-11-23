@@ -6,17 +6,23 @@
 
 需要 Node.js 22.12+；CI 使用 Node.js 24。当前原生预览面向 macOS，其他平台的构建检查不表示安装与日用能力已验收。
 
+从个人主页或仓库首页直接打开本指南时，先单独克隆预览分支；普通的 `git clone` 会取到较早的 `main`。以下命令不会切换你已有工作区的分支。
+
 ```sh
-cd prototypes/electron-m0
+git clone --branch release/v0.2.1 --single-branch https://github.com/Ethereal-Space-one/grid-browser.git grid-preview
+cd grid-preview/prototypes/electron-m0
+node -p "require('./package.json').version"  # 应为 0.2.1
 npm ci
 npm start
 ```
+
+已经在正确分支的仓库根目录？直接进入 `prototypes/electron-m0`，核对版本后执行 `npm ci` 和 `npm start` 即可。
 
 启动不需要服务 key。需要搜索、公开正文或模型功能时，在首页「搜索服务设置」输入自己的 DeepSeek API key，点「本次启用」。这不是电脑登录密码；手动 key 不写磁盘，完全退出后失效。不要把 key、私人网页或任务记录发进反馈。
 
 ## 不需要 key：本地网页例子
 
-另开终端，在仓库根目录运行：
+另开终端，进入刚才克隆的仓库根目录（上例为 `grid-preview/`），运行：
 
 ```sh
 python3 scripts/serve-fixtures.py

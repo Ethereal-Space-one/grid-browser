@@ -27,9 +27,10 @@ export const chromeLayoutSchema = z.object({
 }).strict();
 export type ChromeLayout = z.infer<typeof chromeLayoutSchema>;
 
+export const searchHitLimits = { title: 2048, url: 8192, snippet: 16000, site: 2048, date: 256 } as const;
 export const searchHitSchema = z.object({
-  title: z.string().max(2048), url: z.string().max(8192), snippet: z.string().max(16000),
-  site: z.string().max(2048), date: z.string().max(256).nullable()
+  title: z.string().max(searchHitLimits.title), url: z.string().max(searchHitLimits.url), snippet: z.string().max(searchHitLimits.snippet),
+  site: z.string().max(searchHitLimits.site), date: z.string().max(searchHitLimits.date).nullable()
 });
 export type SearchHit = z.infer<typeof searchHitSchema>;
 export const searchPayloadSchema = z.object({ results: z.array(z.unknown()).max(100) });

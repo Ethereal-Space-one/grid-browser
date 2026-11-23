@@ -32,7 +32,7 @@ function fixture() {
     ] } };
   let state = { ownerId: 'owner', entryId: 'entry', mode: 'comparison', comparisonSelection: [], comparison: record,
     path: { nodes: [{ id: 'entry', status: 'ready' }, { id: 'origin-0' }, { id: 'origin-1' }] } };
-  w.eval(fs.readFileSync(path.join(dir, 'comparison.js'), 'utf8') + '\nwindow.TestComparison = SourceComparison.Controller;');
+  w.eval(fs.readFileSync(path.join(dir, 'snapshot-quote.js'), 'utf8') + '\n' + fs.readFileSync(path.join(dir, 'comparison.js'), 'utf8') + '\nwindow.TestComparison = SourceComparison.Controller;');
   const controller = new w.TestComparison({ state: () => state, save: async () => true,
     grid: new Proxy({}, { get: (_, name) => async (...args) => { calls.push([name, ...args]); return true; } }),
     work(action) { const promise = Promise.resolve().then(action); actions.push(promise); return promise; }

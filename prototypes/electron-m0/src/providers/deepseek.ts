@@ -1,4 +1,4 @@
-import { extractionPayloadSchema, fetchPayloadSchema, searchHitSchema, searchPayloadSchema } from '../contracts/browsing';
+import { extractionPayloadSchema, fetchPayloadSchema, searchPayloadSchema } from '../contracts/browsing';
 import type { BrowsingProvider } from '../application/browsing-session';
 import { extractionBody } from '../scenes';
 import { normalizeSearchResults } from '../search';
@@ -51,7 +51,7 @@ export function deepSeekProvider(key: () => string, transport: typeof fetch = (.
       const parsed = searchPayloadSchema.safeParse(await request('search', body, signal));
       if (!parsed.success) throw new Error('搜索服务返回格式无效；已有结果仍可使用');
       const results = normalizeSearchResults(parsed.data);
-      if (results.some(hit => !searchHitSchema.safeParse(hit).success)) throw new Error('搜索结果超出支持范围；请缩小查询');
+      if (parsed.data.results.length && !results.length) throw new Error('服务返回了结果，但没有可打开的网页地址；请换个查询或直接输入网址。');
       return results;
     },
     async read(url, signal) {

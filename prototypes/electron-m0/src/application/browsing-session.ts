@@ -30,7 +30,7 @@ export class BrowsingSession {
     this.navigation = new NavigationStore(limits, restored);
     const entry = this.navigation.current();
     this.current = Object.freeze({ ownerId: randomUUID(), revision: 0, comparisonSelection: Object.freeze([]), ...entry.content,
-      entryId: entry.id, presentation: entry.presentation, path: this.navigation.snapshot(), canGoBack: false, canGoForward: false });
+      entryId: entry.id, presentation: entry.presentation, path: this.navigation.snapshot(), canGoBack: this.navigation.canBack(), canGoForward: this.navigation.canForward() });
   }
   removeNode(id: string) { this.navigation.remove(id); this.update({}, 'none'); }
   undoRemoval() { this.navigation.undoRemoval(); this.update({}, 'none'); }
@@ -93,8 +93,11 @@ export class BrowsingSession {
     { kind: 'page', status: 'ready', label: (hit?.title || url).slice(0, 256), excerpt: hit?.snippet.slice(0, 400), target: url, context: this.current.searchContext }); }
   navigated(url: string, nativeIndex: number | undefined, replace = false, nativeVisitId?: string) {
     if (this.current.mode !== 'page') return;
-    if (replace) this.update({ value: url, nativeIndex, nativeVisitId });
-    else this.transition({ value: url, nativeIndex, nativeVisitId }, true,
+    if (replace) {
+      const step = this.navigation.current().step;
+      this.update({ value: url, nativeIndex, nativeVisitId }, 'replace',
+        step.kind === 'page' && step.target !== url ? { target: url } : undefined);
+    } else this.transition({ value: url, nativeIndex, nativeVisitId, summary: undefined }, true,
       { kind: 'page', status: 'ready', label: url.slice(0, 256), target: url, context: this.current.searchContext });
   }
   private restore() { this.update({ pending: undefined }, 'none'); }

@@ -130,3 +130,37 @@ test('background completion stays with its tab and closing a tab aborts its pend
   finish({ title: 'Late A', content: 'A' }); await Promise.resolve();
   assert.equal(b.snapshot().search?.query, 'B'); assert.equal(b.snapshot().reading, undefined);
 });
+
+test('companion stays with the actual source visit, not an older page above a new search', async () => {
+  const s = new BrowsingSession(provider, () => {});
+  const a = 'https://example.invalid/a', b = 'https://example.invalid/b';
+  s.open(a); s.navigated(a, 0, true, 'visit-a'); const page = s.snapshot().entryId;
+  await s.read(a); assert.equal(s.pageAncestor()?.id, page);
+  s.beginQuestion(); assert.equal(s.pageAncestor()?.id, page);
+  s.jump(page); await s.search('New research', 'learning', false); await s.read(b);
+  assert.equal(s.pageAncestor(), undefined);
+  s.beginQuestion(); assert.equal(s.pageAncestor(), undefined);
+  s.jump(page); await s.search('Another search result for A', 'professional', false); await s.read(a);
+  assert.equal(s.pageAncestor(), undefined, 'matching URLs do not bridge independent searches');
+  s.jump(page); await s.read(b); assert.equal(s.pageAncestor(), undefined, 'explicitly reading source B is not a panel for A');
+  s.jump(page); s.open(a); s.beginQuestion();
+  assert.equal(s.pageAncestor(), undefined, 'a second page without a live visit must not fall back to the first visit');
+});
+
+test('comparison and judgment companions require the source selection’s exact page visit', async () => {
+  const a = 'https://example.com/', b = 'https://example.invalid/second';
+  const s = new BrowsingSession({...provider, compare:async () => ({overview:'Synthetic',rows:[],limitations:''})}, () => {});
+  s.open(a); s.navigated(a,0,true,'visit-a1'); const a1=s.snapshot().entryId;
+  const readingA=(await s.read(a))!; s.chooseComparison({kind:'reading',readingId:readingA.id});
+  s.open(b); s.navigated(b,1,true,'visit-b1'); const b1=s.snapshot().entryId;
+  const readingB=(await s.read(b))!; s.chooseComparison({kind:'reading',readingId:readingB.id});
+  await s.startComparison(); assert.equal(s.pageAncestor()?.id,b1);
+  s.beginJudgment(); assert.equal(s.pageAncestor()?.id,b1);
+  s.open(a); s.navigated(a,2,true,'visit-a2'); await s.startComparison();
+  assert.equal(s.pageAncestor(),undefined,'A2 is not selected A1 even when the addresses match');
+  s.jump(a1); await s.startComparison(); assert.equal(s.pageAncestor()?.id,a1);
+  const [selectedA] = s.snapshot().comparisonSelection; s.removeComparison(selectedA.id);
+  const results=(await s.search('Result-only source', 'learning', false))!; s.chooseComparison({kind:'result',searchId:results.id,index:0});
+  s.open(a); s.navigated(a,3,true,'visit-a3'); await s.startComparison();
+  assert.equal(s.pageAncestor(),undefined,'selecting a result did not select a live visit');
+});

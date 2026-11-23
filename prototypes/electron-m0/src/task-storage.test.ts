@@ -80,3 +80,35 @@ test('catalog count and aggregate byte quotas reject new commits without deletin
  await assert.rejects(r.flush());assert.equal(r.state().status,'error');assert.deepEqual(await fs.readFile(path.join(dir,'manifest.json')),committed);const reader=new TaskRepository(dir);await reader.load();assert.equal(reader.state().paths.length,1);assert.equal(reader.get(task.id).id,task.id);
  }
 });
+
+test('first restored state exposes both directions of the saved branch without re-running a provider', async t => {
+ const dir = await directory(); t.after(() => fs.rm(dir, {recursive:true, force:true}));
+ const original = new BrowsingSession(provider(), () => {});
+ await original.search('First saved search', 'learning', false); const search = original.snapshot().entryId;
+ original.open('https://example.invalid/first'); const first = original.snapshot().entryId;
+ original.jump(search); original.open('https://example.invalid/second'); const second = original.snapshot().entryId;
+ original.jump(first); original.back();
+ const writer = new TaskRepository(dir); attach(writer, original.exportTask()); await writer.flush();
+ const reader = new TaskRepository(dir); await reader.load();
+ const noRequests = () => assert.fail('restoring or traversing a stored branch must stay local');
+ const restored = new BrowsingSession({search:noRequests,read:noRequests,extract:noRequests}, () => {}, undefined, reader.get(original.snapshot().path.id));
+ assert.equal(restored.snapshot().entryId, search); assert.equal(restored.snapshot().canGoBack, true);
+ assert.equal(restored.snapshot().canGoForward, true); restored.forward(); assert.equal(restored.snapshot().entryId, first);
+ assert.ok(restored.snapshot().path.nodes.some(n => n.id === second));
+ restored.back(); restored.back(); assert.equal(restored.snapshot().entryId, restored.snapshot().path.rootId);
+});
+
+for (const cause of ['delete', 'missing'] as const) {
+ test('workspace recovery keeps the active window and a neighboring tab after ' + cause, async t => {
+  const dir = await directory(); t.after(() => fs.rm(dir, {recursive:true, force:true}));
+  const [a,b,c,d] = Array.from({length:4}, () => new BrowsingSession(provider(), () => {}).exportTask());
+  const writer = new TaskRepository(dir); for (const task of [a,b,c,d]) writer.receive(task);
+  writer.setWorkspace({windows:[{paths:[a.id],selected:a.id},{paths:[b.id,c.id,d.id],selected:c.id}],active:1});
+  await writer.flush();
+  if (cause === 'delete') await writer.deletePath(c.id);
+  else await fs.unlink(path.join(dir, 'gen-' + writer.state().generation, c.id + '.json'));
+  const reader = new TaskRepository(dir); const layout = await reader.load();
+  assert.equal(layout.active,1); assert.deepEqual(layout.windows[1],{paths:[b.id,d.id],selected:d.id});
+  assert.equal(reader.state().status, cause === 'missing' ? 'blocked' : 'saved');
+ });
+}

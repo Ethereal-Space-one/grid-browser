@@ -29,7 +29,7 @@ function fixture(ui, surface, body, quotes, options = {}) {
   const scrolls = [];
   w.HTMLElement.prototype.scrollIntoView = function () { scrolls.push(this); };
   if (ui === 'svelte') w.eval(fs.readFileSync(path.join(renderer, 'ui-slice.js'), 'utf8'));
-  w.eval(fs.readFileSync(path.join(renderer, surface === 'question' ? 'understanding.js' : 'comparison.js'), 'utf8') + '\nwindow.TestController = ' + (surface === 'question' ? 'Understanding' : 'SourceComparison') + '.Controller;');
+  w.eval(fs.readFileSync(path.join(renderer, 'snapshot-quote.js'), 'utf8') + '\n' + fs.readFileSync(path.join(renderer, surface === 'question' ? 'understanding.js' : 'comparison.js'), 'utf8') + '\nwindow.TestController = ' + (surface === 'question' ? 'Understanding' : 'SourceComparison') + '.Controller;');
   const source = { id: 'fixed-source', title: '保存的来源', url: 'https://example.com/saved', fetchedAt: '2026-11-15T00:00:00Z', text: body, truncated: false, ...options.source };
   const state = { ownerId: 'owner', entryId: 'entry', mode: surface, scene: 'learning', presentation: {}, path: { nodes: [{ id: 'origin', status: 'ready' }, { id: 'entry', status: 'ready' }] }, comparisonSelection: [] };
   if (surface === 'question') state.question = { id: 'question', originEntryId: 'origin', title: source.title, url: source.url, question: '合成问题', source: options.noSource ? undefined : source, answer: { text: '待核对的回答', insufficient: false, citations: quotes.map(quote => ({ source: 1, title: source.title, url: source.url, quote })) } };
@@ -119,4 +119,106 @@ for (const ui of ['legacy']) test(`${ui}/comparison/sides-are-independent`, asyn
     assert.equal(f.w.document.activeElement, aButton);
     assert.equal(f.scrolls.length, 0);
   } finally { f.dom.window.close(); }
+});
+
+// Exercise full compiled public UI with synthetic evidence and deferred mock IPC.
+function legacyShell(save = async () => true) {
+  const files = [];
+  const html = fs.readFileSync(path.join(renderer, 'index.html'), 'utf8')
+    .replace(/<script\b[^>]*src="([^"]+)"[^>]*>[\s\S]*?<\/script>/g, (_, file) => { files.push(file); return ''; });
+  const w = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://grid.invalid/' }).window;
+  const { BrowsingSession } = require(path.join(app, 'dist/application/browsing-session.js'));
+  const initial = new BrowsingSession({}, () => {}).snapshot();
+  const base = { ...initial, keyReady: true, storage: { status: 'saved', paths: [], limit: 48, bytes: 0, persistent: true },
+    tabs: [{ id: initial.ownerId, title: 'Fixture', mode: 'home' }], activeTabId: initial.ownerId, layoutId: 'layout' };
+  const calls = [];
+  let publish, revision = 0;
+  w.HTMLElement.prototype.scrollIntoView = function () {};
+  w.ResizeObserver = class { observe() {} };
+  w.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+  w.grid = new Proxy({}, { get(_, name) {
+    if (name === 'state') return async () => base;
+    if (name === 'onState') return callback => { publish = callback; };
+    if (name === 'onFocusAddress') return () => {};
+    return async (...args) => { calls.push([name, ...args]); return name === 'savePresentation' ? save() : true; };
+  } });
+  w.eval(files.map(file => fs.readFileSync(path.join(renderer, file), 'utf8')).join('\n'));
+  return { w, calls, render(patch) { publish({ ...base, ...patch, revision: ++revision }); }, close() { w.close(); } };
+}
+
+const sample = { readingId: 'fixture-reading', title: '合成来源', url: 'https://example.invalid/source',
+  fetchedAt: '2026-11-18T00:00:00Z', text: '首条依据。第二条依据。', truncated: false };
+const sampleQuotes = ['首条依据', '第二条依据'];
+const sampleSide = { text: '合成分析', quotes: sampleQuotes };
+const surfaces = {
+  question: { mode: 'question', entryId: 'question', value: sample.url,
+    question: { id: 'question', originEntryId: 'origin', title: sample.title, url: sample.url, source: sample, question: '结论？', scene: 'learning',
+      answer: { text: '合成回答', citations: sampleQuotes.map(quote => ({ source: 1, title: sample.title, url: sample.url, quote })), insufficient: false } } },
+  comparison: { mode: 'comparison', entryId: 'comparison', value: sample.url,
+    comparison: { id: 'comparison', scene: 'learning', topic: '问题', sources: [0, 1].map(i => ({
+      id: 'source-' + i, originEntryId: 'origin', title: sample.title, url: sample.url, source: sample
+    })), analysis: { overview: '概述', limitations: '范围', rows: [{ aspect: '范围', relation: 'agreement', left: sampleSide, right: sampleSide }] } } }
+};
+
+for (const [surface, state] of Object.entries(surfaces)) test(`${surface}: successive snapshot lookups return to the actual citation without leaking a highlight`, async () => {
+  const f = legacyShell(), { document: d } = f.w;
+  try {
+    await tick();
+    f.render(state);
+    const target = index => surface === 'question' ? d.querySelectorAll('#answer-citations button')[index]
+      : d.getElementById(`comparison-quote-0-0-${index}`);
+    const details = () => d.getElementById(surface === 'question' ? 'question-evidence' : 'comparison-evidence-0');
+    const back = () => d.getElementById(surface === 'question' ? 'question-evidence-back' : 'comparison-evidence-back-0');
+    const inspect = async index => { target(index).focus(); target(index).click(); await tick(); };
+    for (const manuallyOpen of [false, true]) {
+      details().open = manuallyOpen;
+      await inspect(0);
+      await inspect(1);
+      assert.equal(details().querySelector('mark').textContent, sampleQuotes[1]);
+      assert.ok(back() && !back().hidden);
+      back().focus(); back().click(); await tick();
+      assert.equal(d.activeElement, target(1));
+      assert.equal(details().open, manuallyOpen);
+      assert.equal(back().hidden, true);
+      assert.equal(details().querySelector('mark'), null);
+    }
+    await inspect(1);
+    details().open = false; await new Promise(resolve => f.w.setTimeout(resolve, 0));
+    details().open = true; await tick();
+    assert.equal(back().hidden, true, 'a manually closed inspection is gone');
+    assert.equal(details().querySelector('mark'), null);
+    for (const manuallyOpen of [false, true]) {
+      details().open = manuallyOpen; await inspect(1);
+      f.render({ mode: 'home', entryId: 'other' }); f.render(state);
+      assert.equal(details().open, manuallyOpen);
+      assert.equal(details().querySelector('mark'), null);
+    }
+    f.render({ ...state, entryId: 'different' });
+    assert.equal(details().open, false);
+    assert.ok(f.calls.every(([name]) => name === 'reportLayout' || name === 'savePresentation'));
+  } finally { f.close(); }
+});
+
+test('an original-source click cannot outlive an intervening step or a rejected save', async () => {
+  let release;
+  const f = legacyShell(() => new Promise(resolve => { release = resolve; })), { document: d } = f.w;
+  const reading = { mode: 'reading', entryId: 'reading', value: sample.url,
+    reading: { id: 'reading', url: sample.url, title: sample.title, content: sample.text, fetchedAt: sample.fetchedAt } };
+  try {
+    await tick();
+    for (const [id, state] of [['question-open', surfaces.question], ['comparison-open-0', surfaces.comparison], ['open-reading-source', reading]]) {
+      const click = () => d.getElementById(id).click();
+      const opens = () => f.calls.filter(([name]) => name === 'open');
+      f.render(state);
+      const before = opens().length;
+      click(); f.render({ mode: 'home', entryId: 'newer' });
+      release(true); await tick(); assert.equal(opens().length, before, id + ': newer step');
+      f.render(state); click(); f.render({ mode: 'home', entryId: 'intervening' }); f.render(state);
+      release(true); await tick(); assert.equal(opens().length, before, id + ': same step revisited');
+      click(); release(false); await tick(); assert.equal(opens().length, before, id + ': rejected save');
+      click(); release(true); await tick();
+      assert.equal(opens().length, before + 1);
+      assert.equal(opens().at(-1)[1], sample.url);
+    }
+  } finally { f.close(); }
 });

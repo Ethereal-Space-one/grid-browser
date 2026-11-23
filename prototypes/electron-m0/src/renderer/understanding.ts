@@ -5,8 +5,10 @@ namespace Understanding {
   export class Controller {
     private entry = '';
     private signature = '';
+    private details = element<HTMLDetailsElement>('question-evidence');
+    private inspector = new SnapshotQuote.Inspector(this.details, element('question-source-text'), element<HTMLButtonElement>('question-evidence-back'));
     private summarySignature = '';
-    constructor(private hooks: { state: () => State | undefined; grid: GridApi; save: () => Promise<boolean>; work: (action: () => Promise<unknown>) => unknown }) {
+    constructor(private hooks: { state: () => State | undefined; grid: GridApi; save: (state?: State) => Promise<boolean>; work: (action: () => Promise<unknown>) => unknown }) {
       element('summarize').addEventListener('click', () => {
         const state = hooks.state(); if (!state?.search) return;
         hooks.work(() => hooks.grid.summarize(state.search!.id, state.ownerId, state.entryId));
@@ -14,7 +16,7 @@ namespace Understanding {
       for (const id of ['ask-reading', 'ask-page']) element(id).addEventListener('click', () => {
         const state = hooks.state(); if (!state) return;
         hooks.work(async () => {
-          await hooks.save(); await hooks.grid.beginQuestion(state.ownerId, state.entryId);
+          if (!await hooks.save(state)) return; await hooks.grid.beginQuestion(state.ownerId, state.entryId);
           if (hooks.state()?.ownerId === state.ownerId && hooks.state()?.mode === 'question') element('question-input').focus();
         });
       });
@@ -22,15 +24,15 @@ namespace Understanding {
       element('question-form').addEventListener('submit', event => {
         event.preventDefault(); const state = hooks.state(); if (!state?.question) return;
         const text = element<HTMLTextAreaElement>('question-input').value;
-        hooks.work(async () => { await hooks.save(); await hooks.grid.ask(text, state.ownerId, state.entryId, state.question!.id); });
+        hooks.work(async () => { if (!await hooks.save(state)) return; await hooks.grid.ask(text, state.ownerId, state.entryId, state.question!.id); });
       });
       element('question-origin').addEventListener('click', () => {
         const state = hooks.state(); if (!state?.question) return;
-        hooks.work(async () => { await hooks.save(); await hooks.grid.jump(state.question!.originEntryId, state.ownerId, state.entryId); });
+        hooks.work(async () => { if (!await hooks.save(state)) return; await hooks.grid.jump(state.question!.originEntryId, state.ownerId, state.entryId); });
       });
       element('question-open').addEventListener('click', () => {
         const state = hooks.state(); if (!state?.question) return;
-        hooks.work(async () => { await hooks.save(); await hooks.grid.open(state.question!.url, state.ownerId); });
+        hooks.work(async () => { if (!await hooks.save(state)) return; await hooks.grid.open(state.question!.url, state.ownerId); });
       });
       element('question-cancel').addEventListener('click', () => {
         const state = hooks.state(); if (!state) return;
@@ -66,7 +68,7 @@ namespace Understanding {
           button.textContent = `来源 ${citation.source} · 打开网站原页`; button.title = `${citation.title}：打开网站当前内容。摘要引用：${citation.quote}（来自搜索摘要，不是 Fetch 正文或完整引用快照）`;
           button.addEventListener('click', () => this.hooks.work(async () => {
             if (this.hooks.state()?.entryId !== state.entryId || this.hooks.state()?.ownerId !== state.ownerId) return;
-            await this.hooks.save(); await this.hooks.grid.open(citation.url, state.ownerId);
+            if (!await this.hooks.save(state)) return; await this.hooks.grid.open(citation.url, state.ownerId);
           }));
           const quote = document.createElement('blockquote'); quote.textContent = citation.quote;
           const item = document.createElement('div'); item.className = 'summary-citation';
@@ -78,7 +80,11 @@ namespace Understanding {
       element<HTMLButtonElement>('ask-reading').disabled = !state.reading || Boolean(state.reading.released || state.pending);
       element('question-view').classList.toggle('hidden', state.mode !== 'question');
       const key = `${state.ownerId}:${state.entryId}`;
-      if (key !== this.entry) { this.entry = key; element<HTMLTextAreaElement>('question-input').value = state.presentation.questionDraft || ''; }
+      if (key !== this.entry) {
+        this.entry = key;
+        this.inspector.leave();
+        element<HTMLTextAreaElement>('question-input').value = state.presentation.questionDraft || '';
+      }
       if (state.mode !== 'question') return;
       const q = state.question; const pending = state.pending?.kind === 'question';
       element<HTMLButtonElement>('question-submit').disabled = Boolean(state.pending) || !q;
@@ -97,7 +103,7 @@ namespace Understanding {
         : state.path.nodes.find(node => node.id === state.entryId)?.status === 'cancelled' ? '回答已停止。可以修改问题后重新提交。'
         : q.answer ? q.answer.insufficient ? '资料不足 · 不补全缺失信息' : '回答已生成 · 依据仍需你核对' : '只围绕这个来源，先提出一个问题。';
       element('question-status').dataset.state = state.issue?.kind === 'question' ? 'error' : pending ? 'loading' : q?.answer ? 'success' : 'default';
-      const signature = JSON.stringify([key, q?.id, state.issue?.id]);
+      const signature = JSON.stringify([key, q?.id, q?.source?.readingId, q?.source?.released]);
       if (signature === this.signature) return;
       this.signature = signature;
       element('question-title').textContent = q?.title || '问这页';
@@ -107,30 +113,26 @@ namespace Understanding {
       element('answer-time').textContent = q?.answeredAt ? `AI 回答 · ${new Date(q.answeredAt).toLocaleString('zh-CN')} · 未核对` : '';
       element('answer-section').hidden = !q?.question;
       element('source-version').textContent = q?.source ? `引用快照 · 取得于 ${new Date(q.source.fetchedAt).toLocaleString('zh-CN')} · ${q.source.truncated ? '固定文本，仅前 16000 字符' : '固定文本'} · ${q.source.released ? '快照正文未保存，现显示上次回答' : '非网站当前内容'}` : '尚未获取公开正文';
-      const details = element<HTMLDetailsElement>('question-evidence'); details.hidden = !q?.source || Boolean(q.source.released);
+      this.inspector.clear(); this.details.open = false;
+      this.details.hidden = !q?.source || Boolean(q.source.released);
       element('question-source-text').textContent = q?.source?.text || '';
       const evidence = element('answer-citations'); evidence.replaceChildren();
       for (const [index, citation] of (q?.answer?.citations || []).entries()) {
         const li = document.createElement('li'); const button = document.createElement('button'); button.type = 'button';
-        const source = q?.source; const offset = source && citation.quote ? source.text.indexOf(citation.quote) : -1;
-        // A saved quote has no occurrence selector. Identical copies cannot identify the intended one.
-        const ambiguous = offset >= 0 && source!.text.indexOf(citation.quote, offset + 1) >= 0;
-        button.textContent = ambiguous ? '多处匹配 · 查看引用快照' : offset < 0 ? '未匹配 · 查看引用快照' : '定位快照引文';
+        const source = q?.source;
+        const match = SnapshotQuote.match(source?.text ?? '', citation.quote);
+        const problem = match === 'ambiguous' ? '多处匹配' : match === 'missing' ? '未匹配' : '';
+        button.textContent = problem ? problem + ' · 查看引用快照' : '定位快照引文';
         const quote = document.createElement('blockquote'); quote.textContent = citation.quote;
         button.disabled = !source || Boolean(source.released); if (!source || source.released) button.textContent = '完整快照未保存 · 无法定位';
         button.setAttribute('aria-label', `依据 ${index + 1} · ${button.textContent}`);
         const version = document.createElement('p'); version.className = 'question-caption';
         version.textContent = source ? `引用快照 · 取得于 ${new Date(source.fetchedAt).toLocaleString('zh-CN')}` : '引用快照的取得时间不可用';
         if (!source || source.released) version.textContent += ' · 这里只保留引文，无法定位完整快照';
-        else if (ambiguous || offset < 0) version.textContent += ` · ${ambiguous ? '多处匹配' : '未匹配'}，未定位；仅展开固定文本供核对`;
+        else if (problem) version.textContent += ` · ${problem}，未定位；仅展开固定文本供核对`;
         button.addEventListener('click', () => {
           if (!source || source.released) return;
-          details.open = true; const text = element('question-source-text');
-          text.textContent = source.text;
-          if (offset < 0 || ambiguous) return;
-          const mark = document.createElement('mark'); mark.textContent = citation.quote; mark.tabIndex = -1;
-          text.replaceChildren(document.createTextNode(source.text.slice(0, offset)), mark, document.createTextNode(source.text.slice(offset + citation.quote.length)));
-          mark.focus({ preventScroll: true }); mark.scrollIntoView({ block: 'center', behavior: 'instant' });
+          this.inspector.show(button, source.text, citation.quote, match);
         }); li.append(button, version, quote); evidence.append(li);
       }
     }

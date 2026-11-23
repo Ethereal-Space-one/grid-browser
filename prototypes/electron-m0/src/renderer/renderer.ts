@@ -35,6 +35,7 @@ function measureChrome() {
 new ResizeObserver(measureChrome).observe(chrome);
 window.addEventListener('resize', measureChrome);
 let viewKey = '';
+let visitGeneration = 0;
 let restoringPosition = false;
 let restoreFrame = 0;
 async function savePresentation(): Promise<boolean> {
@@ -47,6 +48,13 @@ async function savePresentation(): Promise<boolean> {
     contextual: document.querySelector<HTMLInputElement>('#contextual-search')!.checked,
     questionDraft: document.querySelector<HTMLTextAreaElement>('#question-input')!.value
   });
+}
+// Snapshot/source actions may wait for draft/position persistence. A newer
+// visit wins, including leaving and coming back to the same history entry.
+async function saveSourceContext(expected = renderedState): Promise<boolean> {
+  if (!expected || renderedState?.ownerId !== expected.ownerId || renderedState.entryId !== expected.entryId) return false;
+  const visit = visitGeneration;
+  return await savePresentation() && visit === visitGeneration;
 }
 for (const id of ['input', 'home-query', 'contextual-search']) document.querySelector('#' + id)!.addEventListener('input', () => { void savePresentation().catch(showError); });
 surface.addEventListener('scroll', () => { void savePresentation().catch(showError); });
@@ -88,11 +96,11 @@ const homeEntry = new HomeEntry.Controller({state:()=>renderedState,grid,save:sa
 const storage = new LocalPaths.Controller({ state: () => renderedState, grid, save: savePresentation, work });
 document.querySelector('#refetch-reading')!.addEventListener('click', () => { const s=renderedState; if (s) void work(async()=>{await savePresentation();await grid.read(s.value,s.ownerId);}); });
 const shell = new ReadingShell.Controller({state:()=>renderedState,grid,save:savePresentation,work,measure:measureChrome});
-const understanding = new Understanding.Controller({ state: () => renderedState, grid, save: savePresentation, work });
+const understanding = new Understanding.Controller({ state: () => renderedState, grid, save: saveSourceContext, work });
 const judgments = new PersonalJudgment.Controller({ state: () => renderedState, grid, save: savePresentation, work });
 const quoteLocator = new OriginalQuoteLocator.Controller({ state: () => renderedState, grid, work, measure: measureChrome });
 const failureExits = new FailureExits.Controller({ state: () => renderedState, grid, save: savePresentation, work, measure: measureChrome });
-const comparisons = new SourceComparison.Controller({ state: () => renderedState, grid, save: savePresentation, work });
+const comparisons = new SourceComparison.Controller({ state: () => renderedState, grid, save: saveSourceContext, work });
 let actionId = '';
 function renderAgent(state: State): void {
   const draft = state.action;
@@ -230,7 +238,7 @@ document.querySelector<HTMLButtonElement>('#return-results')!.addEventListener('
   void work(async () => { const owner = renderedState?.ownerId; await savePresentation(); await grid.results(owner); });
 });
 document.querySelector<HTMLButtonElement>('#open-reading-source')!.addEventListener('click', () => {
-  void work(async () => { const owner = renderedState?.ownerId; const url = readingUrl; await savePresentation(); await grid.open(url, owner); });
+  void work(async () => { const s = renderedState, url = readingUrl; if (s?.mode === 'reading' && await saveSourceContext(s)) await grid.open(url, s.ownerId); });
 });
 
 function renderTabs(state: State): void {
@@ -274,6 +282,7 @@ function renderState(state: State): void {
   const nextView = [state.ownerId, state.entryId, state.mode, state.search?.id, state.reading?.id].join(':');
   const switched = viewKey !== nextView;
   if (switched) {
+    visitGeneration++;
     viewKey = nextView; lastStateValue = undefined;
     error.classList.add('hidden'); clearTimeout(errorTimer);
     cancelAnimationFrame(restoreFrame); restoringPosition = true;

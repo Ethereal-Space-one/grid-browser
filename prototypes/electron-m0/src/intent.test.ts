@@ -13,3 +13,12 @@ test('remote insecure and credential URLs are rejected', () => {
   assert.throws(() => classifyInput('https://name:secret@example.com'));
   assert.throws(() => classifyInput('file:///private/example.txt'));
 });
+
+test('a leading site, file type or date filter stays in the query instead of being treated as a URL scheme', () => {
+  for (const query of ['site:docs.example.invalid ExampleView', 'FILETYPE:pdf flowers', 'before:2026-05-01 迁移', 'after:2026-05-01', 'site:example.org']) {
+    assert.deepEqual(classifyInput(query), { kind: 'query', query });
+  }
+  for (const input of ['file:///reports/a.pdf', 'unknown:example.org', 'site://example.org', 'site:']) {
+    assert.throws(() => classifyInput(input), /不支持/);
+  }
+});

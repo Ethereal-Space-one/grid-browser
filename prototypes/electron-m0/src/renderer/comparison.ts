@@ -10,10 +10,11 @@ namespace SourceComparison {
     private trayKey = '';
     private recordKey = '';
     private entryKey = '';
+    private inspectors: SnapshotQuote.Inspector[] = [];
     private focusOnStart?: string;
     // UI-only opt-in. Host-owned selections survive leaving this mode or reading a page.
     private selectionView = '';
-    constructor(private hooks: { state(): State | undefined; grid: Api; save(): Promise<boolean>; work(action: () => Promise<unknown>): unknown }) {
+    constructor(private hooks: { state(): State | undefined; grid: Api; save(state: State): Promise<boolean>; work(action: () => Promise<unknown>): unknown }) {
       el('comparison-select-mode').addEventListener('click', () => {
         const s = hooks.state(); if (!s || s.mode !== 'results' || !s.search?.results.length) return;
         this.selectionView = this.picking(s) ? '' : `${s.ownerId}:${s.search.id}`;
@@ -33,14 +34,14 @@ namespace SourceComparison {
         const s = hooks.state(); if (!s) return;
         this.focusOnStart = s.ownerId;
         hooks.work(async () => {
-          try { await hooks.save(); await hooks.grid.comparisonStart(s.ownerId, s.entryId); }
+          try { if (!await hooks.save(s)) return; await hooks.grid.comparisonStart(s.ownerId, s.entryId); }
           finally { this.focusOnStart = undefined; }
         });
       });
       el('comparison-retry').addEventListener('click', () => {
         const s = hooks.state(); if (!s) return;
         hooks.work(async () => {
-          await hooks.save();
+          if (!await hooks.save(s)) return;
           if (s.comparison) await hooks.grid.comparisonRetry(s.comparison.id, s.ownerId, s.entryId);
           else await hooks.grid.comparisonRecover(s.ownerId, s.entryId);
         });
@@ -129,7 +130,7 @@ namespace SourceComparison {
         if (active?.startsWith('comparison-remove-')) document.getElementById(active)?.focus({ preventScroll: true });
       }
       const visible = s.mode === 'comparison'; el('comparison-view').classList.toggle('hidden', !visible);
-      if (!visible) return;
+      if (!visible) { this.inspectors.forEach(inspector => inspector.leave()); return; }
       const scope = s.path.nodes.find(node => node.id === s.entryId)?.comparisonScope;
       const record: import('../contracts/comparison').ComparisonRecord | undefined = s.comparison ?? (scope && {
         ...scope, id: `missing-${s.entryId}`, sources: scope.sources.map(item => ({ ...item,
@@ -159,6 +160,7 @@ namespace SourceComparison {
       el('comparison-limitations').textContent = record?.analysis?.limitations || '';
       const active = document.activeElement?.id;
       const opened = new Set(Array.from(el('comparison-sources').querySelectorAll<HTMLDetailsElement>('details[open]')).map(node => node.id));
+      const inspectors = this.inspectors = [] as SnapshotQuote.Inspector[];
       const sources = el('comparison-sources'); sources.replaceChildren();
       for (const [index, item] of (record?.sources || []).entries()) {
         const letter = index ? 'B' : 'A'; const card = document.createElement('article'); card.className = 'comparison-source'; card.setAttribute('aria-label', `来源 ${letter}`);
@@ -170,24 +172,21 @@ namespace SourceComparison {
         const actions = document.createElement('div'); actions.className = 'understanding-actions';
         const open = this.button('打开网站原页 ↗', `comparison-open-${index}`, async () => {
           if (this.hooks.state()?.ownerId !== s.ownerId || this.hooks.state()?.entryId !== s.entryId) return;
-          await this.hooks.save(); await this.hooks.grid.open(item.url, s.ownerId);
+          if (!await this.hooks.save(s)) return; await this.hooks.grid.open(item.url, s.ownerId);
         });
         open.title = '打开网站当前内容，不是引用快照';
         const origin = this.button('返回选择位置', `comparison-origin-${index}`, async () => {
           if (this.hooks.state()?.ownerId !== s.ownerId || this.hooks.state()?.entryId !== s.entryId) return;
-          await this.hooks.save(); await this.hooks.grid.jump(item.originEntryId, s.ownerId, s.entryId);
+          if (!await this.hooks.save(s)) return; await this.hooks.grid.jump(item.originEntryId, s.ownerId, s.entryId);
         });
         origin.disabled = !s.path.nodes.some(node => node.id === item.originEntryId); actions.append(open, origin); card.append(actions);
         if (item.source && !item.source.released) {
           const details = document.createElement('details'); details.className = 'question-evidence'; details.id = `comparison-evidence-${index}`;
           const summary = text('summary', '查看引用快照'); const body = text('pre', item.source.text);
           body.id = `comparison-text-${index}`; body.tabIndex = 0; summary.setAttribute('aria-label', `查看来源 ${letter} 的引用快照`); body.setAttribute('aria-label', `来源 ${letter} 的引用快照`);
-          const back = this.button('回到刚才的对照项', `comparison-evidence-back-${index}`, async () => {
-            const target = back.dataset.quoteTarget && document.getElementById(back.dataset.quoteTarget);
-            if (!target) return;
-            if (back.dataset.collapse === 'true') details.open = false;
-            target.focus({ preventScroll: true }); target.scrollIntoView({ block: 'center', behavior: 'instant' });
-          }); back.hidden = true;
+          const back = document.createElement('button'); back.type = 'button'; back.id = `comparison-evidence-back-${index}`;
+          back.textContent = '返回对照项'; back.hidden = true;
+          inspectors[index] = new SnapshotQuote.Inspector(details, body, back);
           details.append(summary, body, back); details.open = !changedEntry && opened.has(details.id); card.append(details);
         }
         sources.append(card);
@@ -202,27 +201,18 @@ namespace SourceComparison {
           const column = document.createElement('article'); column.append(text('h3', `来源 ${index ? 'B' : 'A'}`), text('p', side.text));
           for (const [quoteIndex, quote] of side.quotes.entries()) {
             const evidence = document.createElement('div'); evidence.className = 'comparison-quote';
-            const source = record!.sources[index].source; const offset = source && quote ? source.text.indexOf(quote) : -1;
-            const ambiguous = offset >= 0 && source!.text.indexOf(quote, offset + 1) >= 0;
-            const label = ambiguous ? '多处匹配 · 查看引用快照' : offset < 0 ? '未匹配 · 查看引用快照' : '定位快照引文';
+            const source = record!.sources[index].source;
+            const match = SnapshotQuote.match(source?.text ?? '', quote);
+            const problem = match === 'ambiguous' ? '多处匹配' : match === 'missing' ? '未匹配' : '';
+            const label = problem ? problem + ' · 查看引用快照' : '定位快照引文';
             const button = this.button(label, `comparison-quote-${rowIndex}-${index}-${quoteIndex}`, async () => {
-              if (!source || source.released) return;
-              const body = el(`comparison-text-${index}`); const details = el<HTMLDetailsElement>(`comparison-evidence-${index}`);
-              const back = el(`comparison-evidence-back-${index}`);
-              body.textContent = source.text; back.hidden = true; delete back.dataset.quoteTarget; delete back.dataset.collapse;
-              const wasOpen = details.open; details.open = true;
-              if (offset < 0 || ambiguous) return;
-              back.hidden = false;
-              back.dataset.quoteTarget = `comparison-quote-${rowIndex}-${index}-${quoteIndex}`; back.dataset.collapse = String(!wasOpen);
-              const mark = text('mark', quote); mark.tabIndex = -1;
-              body.replaceChildren(document.createTextNode(source.text.slice(0, offset)), mark, document.createTextNode(source.text.slice(offset + quote.length)));
-              mark.focus({ preventScroll: true }); mark.scrollIntoView({ block: 'center', behavior: 'instant' });
+              if (source && !source.released) inspectors[index]?.show(button, source.text, quote, match);
             });
             if (!source || source.released) { button.disabled = true; button.textContent = '完整快照未保存 · 无法定位'; }
             // Full version/scope stays in the A/B source cards. Repeat only a local
             // limitation beside the affected quote, not successful provenance.
             const note = !source || source.released ? '这里只保留引文，无法定位完整快照'
-              : ambiguous || offset < 0 ? `${ambiguous ? '多处匹配' : '未匹配'}，未定位；仅展开固定文本供核对` : '';
+              : problem ? `${problem}，未定位；仅展开固定文本供核对` : '';
             evidence.append(text('blockquote', quote));
             if (note) {
               const issue = text('p', note, 'comparison-quote-issue'); issue.id = `${button.id}-issue`;

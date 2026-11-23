@@ -174,7 +174,7 @@
           <p id="question-scope" class="question-caption"></p><p id="question-status" class="question-caption" role="status"></p>
           <div class="understanding-actions"><button id="question-cancel" type="button" hidden>停止回答</button><button id="question-submit" type="submit">提问</button></div>
         </form>
-        <details id="question-evidence" class="question-evidence" hidden><summary>查看引用快照</summary><p class="question-caption">这是取得时固定、用于本次回答的公开文本；取得时间见上方，不是网站当前内容。</p><pre id="question-source-text" tabindex="0" aria-label="本次回答的引用快照"></pre></details>
+        <details id="question-evidence" class="question-evidence" hidden><summary>查看引用快照</summary><p class="question-caption">这是取得时固定、用于本次回答的公开文本；取得时间见上方，不是网站当前内容。</p><pre id="question-source-text" tabindex="0" aria-label="本次回答的引用快照"></pre><button id="question-evidence-back" type="button" hidden>返回回答依据</button></details>
       </section>
       <section id="comparison-view" class="comparison-view understanding hidden" aria-labelledby="comparison-title">
         <div class="understanding-heading comparison-heading"><div class="eyebrow">两份资料 · 逐项核对</div><div class="understanding-actions"><button id="judgment-from-comparison" type="button" hidden>记录我的判断</button><button id="comparison-cancel" type="button" hidden>停止对照</button><button id="comparison-retry" type="button">按相同正文重试</button></div></div><h1 id="comparison-title" tabindex="-1">来源对照</h1>
@@ -204,6 +204,7 @@
     <p id="quote-locator-announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
     <p id="path-announcement" class="sr-only" role="status"></p>
     <script src="path-map.js"></script>
+    <script src="snapshot-quote.js"></script>
     <script src="understanding.js"></script>
     <script src="comparison.js"></script>
     <script src="judgment.js"></script>

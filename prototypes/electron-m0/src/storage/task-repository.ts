@@ -22,6 +22,20 @@ function recallTitle(task:StoredTask):string {
   }
   return Array.from(fallback).slice(0,100).join('');
 }
+// Preserve selection by the original window/tab position, even if its selected
+// path is lost. Prefer the next surviving neighbor, then the previous one.
+function retainWorkspace(workspace: Workspace, keep: (id: string) => boolean): Workspace {
+  const windows = workspace.windows.flatMap((window, index) => {
+    const paths = window.paths.filter(keep);
+    if (!paths.length) return [];
+    const selectedIndex = window.paths.indexOf(window.selected);
+    const selected = window.paths.slice(selectedIndex).find(keep) ?? paths[paths.length - 1];
+    return [{ index, window: { paths, selected } }];
+  });
+  const next = windows.findIndex(item => item.index >= workspace.active);
+  return { windows: windows.map(item => item.window), active: next < 0 ? Math.max(0, windows.length - 1) : next };
+}
+
 export type CommitPoint = 'data-written'|'before-manifest'|'after-manifest'|'before-cleanup';
 /** One writer; a generation is visible only through its committed manifest. Never scans old generations for recovery. */
 export class TaskRepository {
@@ -61,8 +75,7 @@ export class TaskRepository {
         if(task.id!==meta.id||task.nodes.length!==meta.nodes)throw new Error('Task mismatch');this.tasks.set(task.id,{task,text:JSON.stringify(task),title:recallTitle(task),updatedAt:meta.updatedAt});
       }catch{damaged=true;}}
       this.validateWorkspace(manifest.workspace,new Set(manifest.paths.map(p=>p.id)));
-      this.workspace={windows:manifest.workspace.windows.map(w=>{const paths=w.paths.filter(id=>this.tasks.has(id));return {paths,selected:paths.includes(w.selected)?w.selected:paths[0]};}).filter(w=>w.paths.length),active:0};
-      const activeSelected=manifest.workspace.windows[manifest.workspace.active]?.selected;const active=this.workspace.windows.findIndex(w=>w.paths.includes(activeSelected));this.workspace.active=Math.max(0,active);
+      this.workspace=retainWorkspace(manifest.workspace, id => this.tasks.has(id));
       if(damaged){this.blocked=true;this.notify('blocked','部分路径损坏或缺失；已隔离并保留原文件。本轮可查看其余路径，但不覆盖保存空间。');}
       else {await this.cleanup();this.notify('saved');}
     }catch{this.blocked=true;this.notify('blocked','保存格式未知或清单损坏；原文件已保留。本轮可继续浏览，但不覆盖保存空间。');}
@@ -126,7 +139,7 @@ export class TaskRepository {
     if(this.blocked)throw new Error('保存空间处于保护状态，未删除原文件');
     if(!this.tasks.has(id)&&!this.deleted.has(id))throw new Error('路径已变化，请刷新列表');
     this.deleted.add(id);this.tasks.delete(id);
-    this.workspace={windows:this.workspace.windows.map(w=>{const paths=w.paths.filter(p=>p!==id);return{paths,selected:paths.includes(w.selected)?w.selected:paths[0]};}).filter(w=>w.paths.length),active:0};
+    this.workspace=retainWorkspace(this.workspace, pathId => pathId !== id);
     this.dirty();await this.flush();
   }
 }

@@ -191,10 +191,34 @@ export class NavigationStore {
   }
   undoRemoval() { const id = this.removals.pop(); if (id) { const entry = this.entry(id); if (entry) entry.removed = undefined; } }
   navigationTarget(direction: -1 | 1) { return direction < 0 ? this.visibleParent(this.active()) : this.visibleForward(this.active()); }
+  private selectedFromPage(originId: string, page: Entry): boolean {
+    let origin = this.entry(originId);
+    while (origin && origin !== page) {
+      const { kind, target } = origin.step;
+      if ((kind !== 'reading' && kind !== 'question') || target !== page.metadata.value) return false;
+      origin = origin.parentId ? this.entry(origin.parentId) : undefined;
+    }
+    return origin === page;
+  }
   pageAncestor(): NavigationEntry | undefined {
+    // Companions belong to this visit, not merely to the last website this tab saw.
+    const activities: NavigationStep[] = [];
     let entry: Entry | undefined = this.active();
     while (entry) {
-      if (entry.metadata.mode === 'page' && entry.metadata.nativeVisitId) return this.read(entry);
+      const step = entry.step;
+      if (step.kind === 'home' || step.kind === 'search') return undefined;
+      if (step.kind === 'page') {
+        const page = entry;
+        const { value, nativeVisitId, mode } = page.metadata;
+        const matches = activities.every(activity => {
+          if (activity.kind === 'reading' || activity.kind === 'question') return activity.target === value;
+          if (activity.kind === 'comparison') return activity.comparisonScope?.sources.some(source =>
+            source.url === value && this.selectedFromPage(source.originEntryId, page));
+          return activity.kind === 'judgment';
+        });
+        return mode === 'page' && nativeVisitId && matches ? this.read(entry) : undefined;
+      }
+      activities.push(step);
       entry = entry.parentId ? this.entry(entry.parentId) : undefined;
     }
     return undefined;

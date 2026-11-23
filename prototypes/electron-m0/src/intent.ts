@@ -7,6 +7,9 @@ export function classifyInput(raw: string): Intent {
   if (/^localhost(?::\d+)?(?:\/|$)/i.test(input) || /^127\.0\.0\.1(?::\d+)?(?:\/|$)/.test(input)) {
     return { kind: 'url', url: checkedUrl(`http://${input}`) };
   }
+  // These explicit search filters are query terms, including in first position.
+  // Do not reinterpret arbitrary schemes or scheme:// navigation as a search.
+  if (/^(?:site|filetype|before|after):[^\/\s]/i.test(input)) return { kind: 'query', query: input };
   if (/^[a-z][a-z\d+.-]*:/i.test(input)) throw new Error('当前原型不支持这个网址协议');
   if (/^[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+(?:[:/]\S*)?$/u.test(input)) {
     return { kind: 'url', url: checkedUrl(`https://${input}`) };

@@ -23,7 +23,7 @@ export const WINDOW_LIMIT = 4;
 type ActionReceipt = ReturnType<FormAction['exportReceipts']>[number];
 
 type PageOperation = {
-  id: number; kind: 'open' | 'restore' | 'reload' | 'page'; nodeId: string; url: string;
+  id: number; kind: 'open' | 'reopen' | 'restore' | 'reload' | 'page'; nodeId: string; url: string;
   method: NativeMethod; guardWrites: boolean; started: boolean; committed: boolean; redirected: boolean;
   source?: NativePosition; visit?: NativeVisit; timer?: ReturnType<typeof setTimeout>;
   done: Promise<void>; settle: () => void;
@@ -73,7 +73,7 @@ export class BrowserTab {
     if (!['question','reading','comparison','judgment'].includes(state.mode)) return undefined;
     const anchor=this.browsing.pageAncestor(); const position=this.position();
     const visit=anchor && position && this.visits.resolve(anchor.content.nativeVisitId,position);
-    if(!anchor || !visit || visit.index!==position!.index || visit.url!==anchor.content.value) return undefined;
+    if(!anchor || !visit || visit.nodeId!==anchor.id || visit.index!==position!.index || visit.url!==anchor.content.value) return undefined;
     return {id:anchor.id,url:anchor.content.value,title:this.title||anchor.step.label};
   }
   private activatePage() {
@@ -115,7 +115,7 @@ export class BrowserTab {
     let settle!: () => void;
     const done = new Promise<void>(resolve => { settle = resolve; });
     const operation: PageOperation = { id: ++this.sequence, kind, nodeId: this.browsing.snapshot().entryId, url,
-      method: visit?.method ?? (kind === 'open' || kind === 'reload' ? 'GET' : 'UNKNOWN'), guardWrites: kind !== 'page',
+      method: visit?.method ?? (kind === 'open' || kind === 'reopen' || kind === 'reload' ? 'GET' : 'UNKNOWN'), guardWrites: kind !== 'page',
       started: false, committed: false, redirected: false, source: this.visits.current(), visit, done, settle };
     this.operation = operation;
     this.recovery = kind === 'page' ? undefined : this.message('loading', '正在打开所选页面…', url);
@@ -223,7 +223,11 @@ export class BrowserTab {
       if (rawTraversal && this.visits.activate(existing!, position) && this.browsing.jump(existing!.nodeId)) visit = existing;
       else if (operation.kind === 'restore' && operation.visit && this.visits.activate(operation.visit, position)) visit = operation.visit;
       if (!visit) {
-        const replace = operation.kind !== 'page' || Boolean(anchor || replaceInPage);
+        // Opening a new link follows redirects in one step. Reopening an
+        // existing visit must not relabel its saved evidence as a different page.
+        const revisiting = operation.kind === 'reopen' || operation.kind === 'reload' || operation.kind === 'restore';
+        const changedDestination = revisiting && this.browsing.snapshot().value.split('#')[0] !== url.split('#')[0];
+        const replace = !changedDestination && (operation.kind !== 'page' || Boolean(anchor || replaceInPage));
         this.browsing.navigated(url, position.index, replace);
         const inherited = inPage ? existing?.method ?? this.visits.at(previous?.index ?? -1, previous?.url ?? '')?.method : undefined;
         visit = this.visits.record(position, this.browsing.snapshot().entryId, operation.method === 'UNKNOWN' ? inherited ?? 'UNKNOWN' : operation.method,
@@ -379,7 +383,7 @@ export class BrowserTab {
     if (state.mode !== 'page' || this.disposed) return;
     const position = this.position();
     const visit = position && this.visits.resolve(state.nativeVisitId, position);
-    if (!visit) { this.recovery = this.message('history-lost', '旧网页访问已失效；路径仍在，需要重新打开地址。'); this.host.refresh(); return; }
+    if (!visit || visit.nodeId !== state.entryId) { this.recovery = this.message('history-lost', '旧网页访问已失效；路径仍在，需要重新打开地址。'); this.host.refresh(); return; }
     if (visit.index === position!.index && visit.url === state.value) { this.recovery = undefined; this.host.refresh(); return; }
     if (visit.method !== 'GET' && visit.method !== 'HEAD') { this.recovery = this.message('submission', '此步骤可能包含提交，未自动恢复或重发。可只重新打开地址。'); this.host.refresh(); return; }
     const operation = this.begin('restore', state.value, visit);
@@ -395,18 +399,25 @@ export class BrowserTab {
     const state = this.browsing.snapshot();
     if (state.entryId !== nodeId || !this.recovery || this.recovery.id !== recoveryId || this.recovery.nodeId !== nodeId || this.recovery.kind === 'loading') throw new Error('恢复提示已变化，请重新选择当前页面');
     const url = checkedUrl(this.recovery.url);
-    const operation = this.begin('open', url);
+    const operation = this.begin('reopen', url);
     await this.load(operation);
   }
   async reload() {
     const state = this.browsing.snapshot();
-    if (state.mode !== 'page') return;
+    if (state.mode !== 'page' || this.operation) return;
     this.browsing.cancel();
     const position = this.position();
     const visit = position && this.visits.resolve(state.nativeVisitId, position);
-    if (!visit || (visit.method !== 'GET' && visit.method !== 'HEAD')) {
+    // resolve() can also return an earlier history slot. Chromium reloads the
+    // live slot, not the selected task node; never substitute the former.
+    const current = visit && visit.nodeId === state.entryId && visit.index === position!.index && visit.url === state.value;
+    const submission = visit && visit.method !== 'GET' && visit.method !== 'HEAD';
+    if (!current || submission || this.recovery) {
       this.abortOperation(); this.invalidateDocument();
-      this.recovery = this.message(visit ? 'submission' : 'history-lost', '未自动刷新此步骤，以免重新提交；可只重新打开地址。'); this.host.refresh(); return;
+      this.recovery = submission
+        ? this.message('submission', '未自动刷新此步骤，以免重新提交；可只重新打开地址。')
+        : this.message('history-lost', '所选步骤没有可刷新的原页；可重新打开地址。');
+      this.host.refresh(); return;
     }
     const operation = this.begin('reload', state.value, visit);
     this.view!.webContents.reload(); await operation.done;

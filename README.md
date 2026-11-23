@@ -4,6 +4,23 @@ Grid 是从用户意图出发的开源浏览器：让人更快找到、理解并
 
 从 [PLAN.md](./PLAN.md) 的用户目标开始，技术路线和验收门槛见 [TECHNICAL_PLAN.md](./TECHNICAL_PLAN.md)。Grid 早期使用 Lattice 开发代号；实验性 `.lattice` 证据格式是独立的按需能力。
 
+## 第一次试用：先选版本
+
+- **直接打开应用（Apple Silicon Mac）**：在 [v0.2.0 开发者预览](https://github.com/Ethereal-Space-one/grid-browser/releases/tag/v0.2.0) 的 Assets 下载 `Grid-0.2.0-mac-arm64.zip`，不要选 Source code。这个包未公证，不包含 0.2.1 的改动。
+- **体验 0.2.1 的资料对照与引文返回**：这是[源码预览分支](https://github.com/Ethereal-Space-one/grid-browser/tree/release/v0.2.1)，不是 0.2.0 的下载包。安装 Node.js 22.12+ 后，从一个新目录开始：
+
+```sh
+git clone --branch release/v0.2.1 --single-branch https://github.com/Ethereal-Space-one/grid-browser.git grid-preview
+cd grid-preview/prototypes/electron-m0
+node -p "require('./package.json').version"  # 应为 0.2.1
+npm ci
+npm start
+```
+
+第一次打开无需 API key。跟随[试用指南里的本地网页例子](https://github.com/Ethereal-Space-one/grid-browser/blob/release/v0.2.1/docs/TRY_GRID_0.2.1.md)试一次打开网页、进入第二页和返回；只有搜索、公开正文提取和模型问答等服务功能才需要 key。
+
+本页以下内容对应 `main` 的早期实验。Swift/WebKit 是已冻结的对照样机，不是上面两个 Electron 预览的启动步骤。
+
 ## 当前代码
 
 - `Sources/GridCore/OmniboxIntent.swift`：网址与查询分流；网址不调用模型，查询走明确的搜索回退。
@@ -18,7 +35,7 @@ Grid 是从用户意图出发的开源浏览器：让人更快找到、理解并
 - `scripts/build-chromium-g1.sh`：在固定 stable 提交上同步 DEPS、生成独立 GN 配置并构建 `chrome`；完整复现步骤见 [Chromium G1 构建说明](./docs/BUILD_CHROMIUM.md)。本仓库不包含 Chromium 源码、工具链或构建产物。
 - `scripts/smoke-chromium-g1.sh`：构建完成后用临时资料档启动 Chromium，验证本地页面能被渲染。
 
-## 在 macOS 运行样机
+## 在 macOS 运行历史 Swift 样机
 
 需要 macOS 14+ 与 Xcode/Swift 6 工具链。
 
